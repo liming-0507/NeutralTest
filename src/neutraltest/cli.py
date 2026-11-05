@@ -110,6 +110,12 @@ def _build_parser() -> argparse.ArgumentParser:
     matrix.add_argument(
         "--json", action="store_true", help="print the report as JSON instead of a table"
     )
+    matrix.add_argument(
+        "--fp32-precision",
+        default="highest",
+        choices=("highest", "high", "medium"),
+        help="pin torch.set_float32_matmul_precision before measuring (default: highest)",
+    )
     return parser
 
 
@@ -367,7 +373,9 @@ def _gbz73(args: argparse.Namespace) -> int:
 
     failures = 0
     for backend in backends:
-        report = matrix.run_all(backend, ops=ops, features=features)
+        report = matrix.run_all(
+            backend, ops=ops, features=features, fp32_precision=args.fp32_precision
+        )
         if args.json:
             import json
 
@@ -376,6 +384,7 @@ def _gbz73(args: argparse.Namespace) -> int:
             print(
                 f"backend: {backend.name}  device_type={backend.device_type}  index={args.device_index}"
             )
+            print(f"fp32 matmul precision: {report.fp32_precision}")
             print(matrix.render_matrix(report, ops=tuple(op.name for op in ops)))
             print()
             print(matrix.render_summary(report))

@@ -14,7 +14,7 @@ from ..backends.base import Backend
 from .features import COLUMNS, FEATURES, Feature
 from .ops import OPS, Op
 
-SYMBOLS = {"passed": "P", "failed": "F", "na": "-"}
+SYMBOLS = {"passed": "P", "failed": "F", "na": "-", "not_run": "\u00b7"}
 VERDICTS = ("passed", "failed", "na")
 
 
@@ -47,6 +47,7 @@ class Report:
     """All cells of one run, plus the bookkeeping the summary needs."""
 
     results: list[Result] = field(default_factory=list)
+    fp32_precision: str = ""
 
     def add(self, result: Result) -> None:
         self.results.append(result)
@@ -68,6 +69,7 @@ class Report:
         counts = {outcome: len(self.by_outcome(outcome)) for outcome in VERDICTS}
         return {
             "totals": counts,
+            "fp32_precision": self.fp32_precision,
             "ops": list(COLUMNS),
             "results": [r.as_dict() for r in self.results],
         }
@@ -116,9 +118,20 @@ def run_all(
     ops: tuple[Op, ...] | None = None,
     features: tuple[Feature, ...] | None = None,
     seed: int = 0,
+    fp32_precision: str | None = None,
 ) -> Report:
-    """Run every feature against every operator column."""
+    """Run every feature against every operator column.
+
+    ``fp32_precision`` pins the float32 matmul contract first (``highest`` keeps
+    a 24-bit mantissa); ``None`` leaves the session's own setting untouched and
+    records whatever it happens to be.
+    """
+    from .. import precision
+
     report = Report()
+    report.fp32_precision = (
+        precision.pin(fp32_precision) if fp32_precision else precision.describe()
+    )
     for feature in features or FEATURES:
         for op in ops or OPS:
             report.add(run_feature(feature, op, backend, seed=seed))
@@ -139,7 +152,9 @@ def render_matrix(report: Report, *, ops: tuple[str, ...] = COLUMNS, width: int 
         cells = []
         for op in ops:
             result = report.cell(feature.id, op)
-            cells.append(f"{SYMBOLS.get(result.outcome, '?'):>6}" if result else f"{'?':>6}")
+            cells.append(
+                f"{SYMBOLS.get(result.outcome, '?'):>6}" if result else f"{SYMBOLS['not_run']:>6}"
+            )
         bits = feature.bits[: len(ops)] if len(ops) <= len(COLUMNS) else feature.bits
         lines.append(
             f"{feature.id:<4} {feature.tier:<12} {_clip(feature.title, width):<{width}} {bits:<6} "

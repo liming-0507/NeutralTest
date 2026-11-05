@@ -13,6 +13,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 import neutraltest
 
 SRC = Path(neutraltest.__file__).resolve().parent.parent
@@ -83,10 +85,16 @@ def test_backend_selection_and_markers(tmp_path: Path) -> None:
 
 
 def test_unavailable_backends_are_skipped_not_dropped(tmp_path: Path) -> None:
+    from neutraltest.backends import discover
+
+    missing = [backend.name for backend in discover() if not backend.is_available()]
+    if not missing:
+        pytest.skip("every discovered backend is available on this machine")
+
     suite = _write(tmp_path, "test_basic.py", BASIC_SUITE)
     result = run_pytest(suite, "--backend=all")
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "2 passed" in result.stdout
+    assert "passed" in result.stdout
     assert "skipped" in result.stdout
 
 

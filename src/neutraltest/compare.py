@@ -202,6 +202,7 @@ def _assert_one(
     elif tol is None:
         tol = tolerance_for(dtype or a.dtype, kind, multiplier)
 
+    reported_dtype = a.dtype
     if a.dtype != e.dtype:
         common = torch.promote_types(a.dtype, e.dtype)
         a = a.to(common)
@@ -221,16 +222,50 @@ def _assert_one(
         )
         return
 
-    torch.testing.assert_close(
-        a,
-        e,
-        rtol=tol.rtol,
-        atol=tol.atol,
-        equal_nan=equal_nan,
-        check_device=False,
-        check_dtype=False,
-        check_stride=False,
-        msg=lambda m: f"{label} ({tol}): {m}",
+    try:
+        torch.testing.assert_close(
+            a,
+            e,
+            rtol=tol.rtol,
+            atol=tol.atol,
+            equal_nan=equal_nan,
+            check_device=False,
+            check_dtype=False,
+            check_stride=False,
+            msg=lambda m: f"{label} ({tol}): {m}",
+        )
+    except AssertionError as exc:
+        raise AssertionError(f"{exc}{_precision_hint(a, e, tol, reported_dtype)}") from None
+
+
+def _precision_hint(
+    actual: torch.Tensor, expected: torch.Tensor, tol: Tolerance, dtype: torch.dtype
+) -> str:
+    """Name the likely cause when a float32 result misses by a wide margin.
+
+    A ten-bit mantissa (TF32-class) or an eight-bit one (bfloat16-class) misses a
+    float32 budget by two to three orders of magnitude, not by a few percent --
+    so the size of the miss, not the operator's name, is the evidence.
+    """
+    if dtype != torch.float32 or tol.atol == 0:
+        return ""
+    with torch.no_grad():
+        worst = (actual.float() - expected.float()).abs().max().item()
+        scale = expected.float().abs().max().item()
+    if worst <= 10 * tol.atol or scale == 0:
+        return ""
+    ratio = worst / scale if scale else float("inf")
+    if ratio > 1e-2:
+        guess = "which is consistent with an eight-bit (bfloat16-class) mantissa"
+    elif ratio > 1e-4:
+        guess = "which is consistent with a ten-bit (TF32-class) mantissa"
+    else:
+        return ""
+    return (
+        f"\n  hint: the worst deviation is {worst:.3e}, i.e. {ratio:.1e} of the largest "
+        f"element -- {guess}. Check the session's float32 arithmetic setting "
+        f"(torch.set_float32_matmul_precision, and the backend's own fp32 convolution "
+        f"policy) before filing this as an operator bug."
     )
 
 

@@ -66,8 +66,18 @@ def min_subnormal(dtype: torch.dtype) -> float:
 def quantise(
     tensor: torch.Tensor, scale: torch.Tensor | float, dtype: torch.dtype = DEFAULT_FP8
 ) -> torch.Tensor:
-    """Float tensor -> FP8 tensor, divided by ``scale`` before the cast."""
-    return (tensor / scale).to(dtype)
+    """Float tensor -> FP8 tensor, divided by ``scale`` before the cast.
+
+    The clamp is not decoration.  ``Tensor.to(float8_e4m3fn)`` has *undefined*
+    behaviour on overflow: some builds saturate at the largest finite value
+    (torch 2.15 does), others hand back NaN (torch 2.9 does).  A test oracle
+    cannot inherit that, so the saturating conversion the format specifies is
+    performed here in float arithmetic, and the cast only ever sees in-range
+    values.
+    """
+    scaled = tensor / scale
+    top = max_finite(dtype)
+    return torch.clamp(scaled, -top, top).to(dtype)
 
 
 def dequantise(tensor: torch.Tensor, scale: torch.Tensor | float) -> torch.Tensor:

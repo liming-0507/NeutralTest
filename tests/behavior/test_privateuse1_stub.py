@@ -14,8 +14,22 @@ import subprocess
 import sys
 
 import pytest
+import torch
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
+
+# A vendor build of torch can ship with its backend already registered (the name
+# is no longer the "privateuseone" sentinel), and rename_privateuse1_backend()
+# can only be called once per process -- so the stubbing scenarios are not
+# reproducible there.  Say so instead of failing.
+_REGISTERED = torch._C._get_privateuse1_backend_name()
+pytestmark = pytest.mark.skipif(
+    _REGISTERED != "privateuseone",
+    reason=(
+        f"this torch build already registers privateuse1 as {_REGISTERED!r}; "
+        "the rename is one-shot, so a stub cannot be installed on top of it"
+    ),
+)
 
 # rename_privateuse1_backend() is process-wide and one-shot, so each scenario
 # needs a fresh interpreter.

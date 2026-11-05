@@ -122,6 +122,23 @@ exponent.
 | F5 | 测量协议（warmup/迭代/计时） | required | `items/f5.py` |
 | F6 | N/A 项与披露 | required | `items/f6.py` |
 
+## Float32 arithmetic is pinned, not inherited
+
+A container image may leave `torch.get_float32_matmul_precision()` at `high`,
+which lets a float32 matmul round its inputs to a ten-bit mantissa. That is a
+property of the session, not of the operator, and it moves float32 results by
+two to three orders of magnitude — enough to look like an operator bug. The
+matrix therefore pins it before measuring and prints what it pinned:
+
+```
+fp32 matmul precision: highest (float32 matmul keeps a 24-bit mantissa)
+```
+
+`--fp32-precision high|medium` re-runs the same matrix on the reduced path on
+purpose. A float32 result that still misses its budget by a wide margin is
+then reported with the size of the miss and the mantissa width it is consistent
+with — the size of the miss is the evidence, not the operator's name.
+
 ## Running it
 
 ```bash

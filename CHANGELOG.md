@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased
+
+### Fixed (found by running on a second machine)
+
+- `quantise()` clamps to the format's finite range before casting: `tensor.to(float8_e4m3fn)`
+  saturates on torch 2.15 and returns NaN on torch 2.9, so the oracle cannot inherit it.
+- A6 no longer assumes one answer for infinities. It compares against a clean run and
+  requires that an element the poison reaches may only become zero or non-finite --
+  `relu(-inf)` is a fixed zero point, `gelu(+inf)` is inf on one torch and NaN on another.
+- B7 holds a strided transcendental result to the tolerance table instead of a
+  hard-coded 1e-6, and reports the measured deviation.
+- The privateuse1 stub scenarios skip, with a reason, on a torch build that already
+  registers a privateuse1 backend (the rename is process-wide and one-shot).
+
+### Added
+
+- `--fp32-precision {highest,high,medium}` on `neutraltest gbz73` and on pytest, plus a
+  `fp32 matmul precision:` line in the report: a container that leaves the session at
+  `high` turns an accurate float32 operator into an apparent 1e-2 error.
+- A float32 mismatch far beyond its budget now carries a hint naming the mantissa width
+  the deviation is consistent with (TF32-class, bfloat16-class).
+
 ## 0.1.0
 
 First release.

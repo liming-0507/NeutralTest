@@ -166,6 +166,17 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help="write a JSON report of per-backend results",
     )
     group.addoption(
+        "--fp32-precision",
+        action="store",
+        choices=("highest", "high", "medium"),
+        default="highest",
+        dest="fp32_precision",
+        help=(
+            "pin torch.set_float32_matmul_precision before measuring (default: highest); "
+            "'high'/'medium' let a float32 matmul round to a narrower format"
+        ),
+    )
+    group.addoption(
         "--nt-no-summary",
         action="store_true",
         dest="nt_no_summary",
@@ -188,6 +199,10 @@ def pytest_configure(config: pytest.Config) -> None:
         raise pytest.UsageError(str(exc)) from None
     if not selected:
         raise pytest.UsageError(f"--backend={spec!r} selected no backend")
+
+    from . import precision
+
+    pinned = precision.pin(config.getoption("fp32_precision"))
 
     set_policy(
         on_unsupported=config.getoption("on_unsupported"),
@@ -212,6 +227,7 @@ def pytest_configure(config: pytest.Config) -> None:
         "unavailable": unavailable,
         "recorder": Recorder(),
         "seed": config.getoption("nt_seed"),
+        "fp32_precision": pinned,
         "summary": not config.getoption("nt_no_summary"),
         # snapshotted: a test is allowed to mutate the global policy, the report is not
         "on_unsupported": config.getoption("on_unsupported"),
@@ -268,6 +284,7 @@ def pytest_report_header(config: pytest.Config) -> list[str]:
         f"neutralTest: policy = on_unsupported:{policy.on_unsupported}, "
         f"tolerance_multiplier:{policy.tolerance_multiplier:g}, "
         f"device_index:{policy.device_index}, seed:{policy.seed}",
+        f"neutralTest: fp32 matmul precision = {state['fp32_precision']}",
     ]
     if state["unavailable"]:
         lines.append(
