@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  PYTHONUNBUFFERED: "1"
+
+jobs:
+  lint:
+    name: lint and types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+          python -m pip install -e ".[dev]" --no-deps
+          python -m pip install pytest ruff mypy
+      - name: ruff format
+        run: ruff format --check .
+      - name: ruff check
+        run: ruff check .
+      - name: mypy
+        run: mypy
+
+  test:
+    name: test (py${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+          python -m pip install -e . --no-deps
+          python -m pip install "pytest>=7.4"
+      - name: Framework tests
+        run: pytest tests -q
+      - name: CLI smoke
+        run: |
+          torch-mbt info
+          torch-mbt doctor --backend=cpu
+      - name: JSON report
+        run: pytest tests/conformance -q --mbt-report=results.json
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mbt-report-py${{ matrix.python }}
+          path: results.json
+          if-no-files-found: warn
+
+  skip-behaviour:
+    name: unavailable backends skip, not fail
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
+          python -m pip install -e . --no-deps
+          python -m pip install "pytest>=7.4"
+      - name: --backend=all must skip the absent devices
+        run: pytest tests/conformance -q --backend=all -rs
+      - name: --backend-strict must reject an unavailable backend instead
+        run: |
+          set +e
+          pytest tests/conformance -q --backend=cuda --backend-strict
+          code=$?
+          set -e
+          if [ "$code" -ne 4 ]; then
+            echo "expected exit code 4 (usage error), got $code" >&2
+            exit 1
+          fi
