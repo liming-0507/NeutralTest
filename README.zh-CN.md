@@ -80,7 +80,7 @@ torch-mbt test --backend=cpu -k matmul
 也可以直接驱动 pytest（插件通过 `pytest11` entry point 注册，不需要 conftest）：
 
 ```bash
-pytest --backend=cpu tests/conformance
+pytest --backend=cpu src/torch_mbt/conformance
 pytest --backend=all --on-unsupported=skip      # 不可用后端跳过而不是失败
 pytest --backend=cpu,xpu --mbt-report=report.json
 ```
@@ -117,7 +117,7 @@ pytest --backend=cpu,xpu --mbt-report=report.json
 ### 跑完长什么样
 
 ```console
-$ pytest tests/conformance -q --backend=cpu
+$ pytest -q --backend=cpu src/torch_mbt/conformance
 =============================== torch-mbt summary ===============================
 backend  passed  failed  skipped  xfailed  xpassed  error  unsupported  time
 -------  ------  ------  -------  -------  -------  -----  -----------  -----
@@ -254,7 +254,7 @@ src/torch_mbt/
 tests/
   unit/          框架自己的测试（不需要加速卡）
   behavior/      用真实 pytest 子进程驱动插件
-  conformance/   算子矩阵 —— 拿去打设备的就是这部分
+  conformance/   算子矩阵（随包发布）—— 拿去打设备的就是这部分
 docs/
 ```
 

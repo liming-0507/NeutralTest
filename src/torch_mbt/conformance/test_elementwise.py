@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 import torch
-from support import binary, params, positive, run_case, unary
 
+from torch_mbt.conformance.support import binary, params, positive, run_case, unary
 from torch_mbt.seeding import randn
 from torch_mbt.testing import OpCase
 

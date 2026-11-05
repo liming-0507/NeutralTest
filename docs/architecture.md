@@ -4,7 +4,7 @@
 two know that pytest exists.
 
 ```
-                      tests/conformance/*.py      data: OpCase lists
+        src/torch_mbt/conformance/*.py      data: OpCase lists
                               │                 (one file per operator family)
                               ▼
   ┌───────────────────────────────────────────────────────────────────────┐
@@ -128,7 +128,7 @@ Two consequences are handled explicitly:
 | Point | How |
 | --- | --- |
 | New backend | subclass `Backend`, install, register an entry point |
-| New operator coverage | append an `OpCase` to a module in `tests/conformance/` |
+| New operator coverage | append an `OpCase` to a module in `src/torch_mbt/conformance/` |
 | New numerical class | add a scale to `KIND_SCALE` in `tolerance.py` |
 | Different CI semantics | `--on-unsupported`, `--tolerance-multiplier`, `--backend-strict` |
 | Machine-readable results | `--mbt-report results.json` |

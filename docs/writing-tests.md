@@ -1,7 +1,7 @@
 # Writing tests
 
 Two ways to use the harness: describe the operator as an `OpCase` and let
-`check_case` do everything (what `tests/conformance/` does), or call the
+`check_case` do everything (what `src/torch_mbt/conformance/` does), or call the
 primitives yourself when the shape of the check does not fit.
 
 ## The fast path: `OpCase`
@@ -61,7 +61,7 @@ def test_mm(mbt):
    `positive()`, `sqrt` wants `positive()`, `div` wants a non-zero denominator.
    A NaN in the reference turns a value check into a finiteness check.
 
-`tests/conformance/support.py` provides `unary`, `binary` and `positive`
+`src/torch_mbt/conformance/support.py` provides `unary`, `binary` and `positive`
 builders, and the `params(cases)` helper that turns a list of cases into pytest
 parameters with the right marks:
 
@@ -163,11 +163,11 @@ at all. The summary table counts them in the `unsupported` column either way.
 ## Narrowing a run
 
 ```bash
-pytest tests/conformance -m "mbt_family('matmul')"
-pytest tests/conformance -m "mbt_grad"
-pytest tests/conformance -m "not mbt_slow"
-pytest tests/conformance -m "mbt_backend('cpu')"
-pytest tests/conformance --backend=all -m "mbt_exclude_backend('cpu')"
+pytest src/torch_mbt/conformance -m "mbt_family('matmul')"
+pytest src/torch_mbt/conformance -m "mbt_grad"
+pytest src/torch_mbt/conformance -m "not mbt_slow"
+pytest src/torch_mbt/conformance -m "mbt_backend('cpu')"
+pytest src/torch_mbt/conformance --backend=all -m "mbt_exclude_backend('cpu')"
 ```
 
 ## JSON report

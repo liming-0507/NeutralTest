@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 import torch
 import torch.nn.functional as F
-from support import params, run_case
 
+from torch_mbt.conformance.support import params, run_case
 from torch_mbt.seeding import randn
 from torch_mbt.testing import OpCase
 

@@ -44,8 +44,14 @@ _PROBE_DTYPES = (
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    raw = list(sys.argv[1:] if argv is None else argv)
+    if raw[:1] == ["test"]:
+        # Everything after "test" belongs to pytest; argparse cannot both own a
+        # subcommand and forward an arbitrary tail such as "-q -k matmul".
+        return _test(_forward_options(raw[1:]))
+
     parser = _build_parser()
-    args = parser.parse_args(argv)
+    args = parser.parse_args(raw)
     command = args.command
     if command == "info":
         return _info(args)
@@ -68,14 +74,32 @@ def _build_parser() -> argparse.ArgumentParser:
     doctor = subparsers.add_parser("doctor", help="smoke test the selected backends")
     _add_backend_arguments(doctor)
 
-    test = subparsers.add_parser("test", help="run the conformance suite with pytest")
+    test = subparsers.add_parser(
+        "test",
+        help="run the conformance suite with pytest",
+        description="Run the bundled conformance suite. Any argument this command does not "
+        "recognise is forwarded to pytest verbatim, e.g. 'torch-mbt test --backend=cpu -q'.",
+    )
     _add_backend_arguments(test)
     test.add_argument(
         "pytest_args",
         nargs=argparse.REMAINDER,
-        help="arguments forwarded to pytest (use -- to separate)",
+        help="arguments forwarded to pytest",
     )
     return parser
+
+
+def _forward_options(tokens: Sequence[str]) -> argparse.Namespace:
+    """Split ``test`` arguments into our two options and a pytest tail."""
+    parser = argparse.ArgumentParser(prog="torch-mbt test", add_help=False)
+    parser.add_argument("--backend", default=None, metavar="SPEC")
+    parser.add_argument("--device-index", type=int, default=None)
+    known, rest = parser.parse_known_args(list(tokens))
+    return argparse.Namespace(
+        backend=known.backend or "auto",
+        device_index=known.device_index if known.device_index is not None else 0,
+        pytest_args=rest,
+    )
 
 
 def _add_backend_arguments(parser: argparse.ArgumentParser) -> None:
@@ -282,7 +306,7 @@ def _test(args: argparse.Namespace) -> int:
 def _suite_directory():
     from pathlib import Path
 
-    candidate = Path(__file__).resolve().parent.parent.parent / "tests" / "conformance"
+    candidate = Path(__file__).resolve().parent / "conformance"
     return candidate if candidate.is_dir() else None
 
 

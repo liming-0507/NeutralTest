@@ -9,7 +9,7 @@
    accelerator's API in `src/` will be asked to move it out.
 2. **The CPU suite must stay green without an accelerator.** `tests/unit` and
    `tests/behavior` must pass on a machine with nothing but CPU PyTorch;
-   `tests/conformance` runs there too, against the `cpu` backend.
+   `src/torch_mbt/conformance` runs there too, against the `cpu` backend.
 3. **Every new operator case needs a tolerance class it deserves.** Do not widen
    a `kind` to make a case pass — a too-loose budget hides real regressions.
 4. **New framework behaviour needs a test that fails without it.** The unit
@@ -38,7 +38,7 @@ PEP 695 syntax); the package itself still supports Python ≥ 3.10.
 
 ## Adding operator coverage
 
-Append an `OpCase` to the matching module in `tests/conformance/`, or add a new
+Append an `OpCase` to the matching module in `src/torch_mbt/conformance/`, or add a new
 module if the family is new (follow the shape of `test_matmul.py`: a `CASES`
 tuple, one parametrised test, `run_case`). Rules for the `build` callable are in
 [docs/writing-tests.md](docs/writing-tests.md#the-fast-path-opcase). Regenerate

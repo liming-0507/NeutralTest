@@ -63,7 +63,7 @@ jobs:
           torch-mbt info
           torch-mbt doctor --backend=cpu
       - name: JSON report
-        run: pytest tests/conformance -q --mbt-report=results.json
+        run: pytest src/torch_mbt/conformance -q --mbt-report=results.json
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@v4
@@ -88,11 +88,11 @@ jobs:
           python -m pip install -e . --no-deps
           python -m pip install "pytest>=7.4"
       - name: --backend=all must skip the absent devices
-        run: pytest tests/conformance -q --backend=all -rs
+        run: pytest src/torch_mbt/conformance -q --backend=all -rs
       - name: --backend-strict must reject an unavailable backend instead
         run: |
           set +e
-          pytest tests/conformance -q --backend=cuda --backend-strict
+          pytest src/torch_mbt/conformance -q --backend=cuda --backend-strict
           code=$?
           set -e
           if [ "$code" -ne 4 ]; then

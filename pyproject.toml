@@ -57,7 +57,7 @@ torch_mbt = ["py.typed"]
 
 [tool.pytest.ini_options]
 minversion = "7.4"
-testpaths = ["tests"]
+testpaths = ["tests", "src/torch_mbt/conformance"]
 pythonpath = ["src", "tests"]
 addopts = "-ra --strict-markers --strict-config"
 markers = [
@@ -86,6 +86,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["PT", "B011"]
+"src/torch_mbt/conformance/**" = ["PT", "B011"]
 "docs/**" = ["E501"]
 
 [tool.ruff.format]

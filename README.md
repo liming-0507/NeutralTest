@@ -87,7 +87,7 @@ Or drive pytest directly — the plugin is registered by the `pytest11` entry
 point, so no `conftest.py` is needed:
 
 ```bash
-pytest --backend=cpu tests/conformance
+pytest --backend=cpu src/torch_mbt/conformance
 pytest --backend=all --on-unsupported=skip      # unavailable backends are skipped, not failed
 pytest --backend=cpu,xpu --mbt-report=report.json
 ```
@@ -125,7 +125,7 @@ Markers, so a run can be narrowed without touching test code: `mbt_backend`,
 ### What a run looks like
 
 ```console
-$ pytest tests/conformance -q --backend=cpu
+$ pytest -q --backend=cpu src/torch_mbt/conformance
 =============================== torch-mbt summary ===============================
 backend  passed  failed  skipped  xfailed  xpassed  error  unsupported  time
 -------  ------  ------  -------  -------  -------  -----  -----------  -----
@@ -246,7 +246,7 @@ itself: [docs/backends.md](docs/backends.md).
 | --- | --- |
 | `torch-mbt info` | version, torch build, registered `privateuse1` name, backend table, dtype support matrix, tolerance budgets |
 | `torch-mbt doctor` | 7 smoke checks per available backend (allocate, elementwise, matmul, reduction, softmax, backward, host↔device transfer); exits non-zero if any check fails |
-| `torch-mbt test [pytest args]` | runs pytest with the backend options wired through, defaulting to the bundled conformance suite |
+| `torch-mbt test [pytest args]` | runs the bundled suite (shipped inside the package); unknown arguments are forwarded to pytest |
 
 `doctor` is the fastest way to tell "the device is not there" from "the device
 is there and computes the wrong thing".

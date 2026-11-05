@@ -133,7 +133,7 @@ usage error listing the known ones (`--backend-strict` extends that to
 `torch-mbt doctor` runs seven checks per available backend — allocate, elementwise,
 matmul, reduction, softmax, backward, host↔device round-trip — each followed by
 `synchronize()`, so asynchronous failures surface at the right check instead of
-in the next one. If those pass and `pytest --backend=vendorx tests/conformance`
+in the next one. If those pass and `pytest --backend=vendorx src/torch_mbt/conformance`
 still fails, the adapter is fine and the operator is not.
 
 ## Testing an adapter without hardware
