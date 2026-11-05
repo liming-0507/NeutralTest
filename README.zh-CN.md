@@ -193,6 +193,13 @@ CPU 版 torch 解开就 800 MB，带 CUDA 栈要几个 GB，所以框架的原�
 
 数字与细节见 [docs/space.md](docs/space.md)。
 
+## 树外后端怎么接进来
+
+两种集成方式都支持：注册成 `privateuse1`（不用重编 torch），或直接发行一个设备类型
+就是 `cuda`/`xpu` 的 torch。重命名只能做一次、`privateuseone` 这个占位名、适配器必须
+暴露哪些成员，见 [docs/privateuse1.md](docs/privateuse1.md)；`tests/behavior/test_privateuse1_stub.py`
+用桩模块把这条路证了一遍，不需要真卡就能保持它是对的。
+
 ## 容差
 
 跨实现比浮点，要的是"预算"，不是常数。`torch-mbt` 用 dtype 与数值类别两维决定预算：

@@ -62,6 +62,16 @@ First release.
 - The terminal summary now reports the policy that was actually in force and
   stops suggesting `--on-unsupported=skip` when it is already active.
 
+### Out-of-tree backends
+
+- [docs/privateuse1.md](docs/privateuse1.md): the two ways a vendor joins (register
+  as `privateuse1`, or ship a torch whose device type is already `cuda`/`xpu`),
+  the one-shot rename rule, the `privateuseone` placeholder, and the adapter
+  checklist to run before blaming an operator.
+- `tests/behavior/test_privateuse1_stub.py`: registers a stub `privateuse1`
+  device in a subprocess and asserts the adapter reports name, count, device and
+  aliases — and that an unavailable one never invents device 0.
+
 ### Known limitations
 
 - Only the `cpu` backend is exercised on the development machine; `cuda`,

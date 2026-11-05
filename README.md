@@ -206,6 +206,15 @@ the harness is built to reuse one installation instead of carrying its own:
 
 Details and the numbers: [docs/space.md](docs/space.md).
 
+## Out-of-tree backends
+
+Two integration models, both supported: registering as `privateuse1` (no torch
+rebuild) and shipping a torch whose device type is already `cuda`/`xpu`. The
+registration rules — one-shot rename, the `privateuseone` placeholder, what an
+adapter must expose — are in [docs/privateuse1.md](docs/privateuse1.md), and
+`tests/behavior/test_privateuse1_stub.py` proves the path with a stub module, so
+no hardware is needed to keep it honest.
+
 ## Tolerances
 
 Comparing floating point across implementations needs a budget, not a constant.
