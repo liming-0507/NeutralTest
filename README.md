@@ -189,6 +189,42 @@ attention.
 
 See [docs/operator-matrix.md](docs/operator-matrix.md) for the full table.
 
+## The FP8 clause 7.3 matrix
+
+The same machinery holds a second, much larger suite: the 45-item test catalogue
+that the accelerator interface standard's FP8 clause prescribes for five
+operator families — grouped GEMM, LayerNorm, GELU, ReLU and Amax.
+
+```bash
+neutraltest gbz73 --backend=cpu          # the whole matrix as a table
+neutraltest gbz73 --backend=cpu --json   # the same as JSON
+pytest src/neutraltest/conformance/test_gbz73.py -q   # 225 pytest cases
+```
+
+```
+id   tier         feature                            text   groupe layer_   gelu   relu   amax
+A2   required     量化往返（quant→dequant 误差单测）           00000       P      P      P      P      P
+A9   required     混合精度计算路径                           00100       P      P      -      -      -
+```
+
+Three properties are worth calling out, because they are the reason this suite
+is part of a *neutral* framework rather than a vendor one:
+
+- **One script per row.** `items/a7.py` is the ±0 row, and nothing else, so the
+  code that tests a clause is found from the clause. 45 rows, 45 files.
+- **Two baselines, always on the CPU.** float32 is the ordinary standard and
+  float64 is the golden one; both are computed from the same inputs, so the
+  device under test never supplies its own oracle.
+- **Derived tolerances.** The floor is `2 x half_ulp(dtype) x amplification`,
+  not a constant — 1.25e-1 for activations and reductions at e4m3, 2.5e-1 for
+  normalisation and GEMM. The measured error of the reference implementation
+  lands at 15–37 % of those floors.
+
+`-` means not applicable and is never silent: every such cell prints its reason,
+and row F6 fails the build when a cell is not applicable without one. See
+[docs/gbz73.md](docs/gbz73.md) for the catalogue, the tolerance derivation and
+how to add a row.
+
 ## Growing next to PyTorch
 
 Torch is 800 MB unpacked for a CPU build and several GB with the CUDA stack, so
@@ -294,6 +330,7 @@ tests/
   unit/          the framework's own tests (no accelerator needed)
   behavior/      the plugin driven through real pytest subprocesses
   conformance/   the operator matrix — this is the part you point at a device
+  gbz73/         the FP8 clause 7.3 matrix: one script per clause row
 tools/         matrix generator, torch-version matrix runner
 docs/
 ```

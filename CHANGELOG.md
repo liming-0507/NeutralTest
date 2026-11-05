@@ -43,6 +43,23 @@ First release.
 
 - `neutraltest info`, `neutraltest doctor`, `neutraltest test`.
 
+### FP8 clause 7.3 matrix
+
+- `neutraltest gbz73` — the 45-item test catalogue of the accelerator interface
+  standard's FP8 clause, applied to five operator families (grouped GEMM,
+  LayerNorm, GELU, ReLU, Amax): 225 cells, **187 passed / 38 not applicable / 0
+  failed** on CPU.
+- Every row is one script under `src/neutraltest/gbz73/items/`; the catalogue,
+  its tiers and the standard's own coverage bits live in `features.py`.
+- Both baselines are CPU: float32 as the ordinary standard, float64 as the
+  golden one. Tolerances are derived from the format
+  (`2 x half_ulp x amplification`), not hard-coded.
+- A `-` (not applicable) cell always carries a reason, printed by
+  `render_disclosure`, and row F6 fails the build when it does not.
+- Two defects found and fixed while calibrating: `RunContext.quantised()` was
+  reusing the *input* scale for the output (every accumulator saturated), and
+  the grouped-GEMM reference accepted a decreasing group list.
+
 ### Working next to a large dependency
 
 - [docs/space.md](docs/space.md): how to keep the footprint small — CPU wheel

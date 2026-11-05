@@ -13,6 +13,10 @@ Three verbs, deliberately few:
 
 ``test``
     ``pytest`` with the bundled conformance suite, forwarding every argument.
+
+``gbz73``
+    The FP8 clause matrix: every row of the standard against every operator in
+    the catalogue, printed as a table.  ``--json`` for the machine-readable form.
 """
 
 from __future__ import annotations
@@ -45,6 +49,9 @@ _PROBE_DTYPES = (
 
 def main(argv: Sequence[str] | None = None) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
+    if raw[:1] == ["gbz73"]:
+        args = _build_parser().parse_args(raw)
+        return _gbz73(args)
     if raw[:1] == ["test"]:
         # Everything after "test" belongs to pytest; argparse cannot both own a
         # subcommand and forward an arbitrary tail such as "-q -k matmul".
@@ -85,6 +92,23 @@ def _build_parser() -> argparse.ArgumentParser:
         "pytest_args",
         nargs=argparse.REMAINDER,
         help="arguments forwarded to pytest",
+    )
+
+    matrix = subparsers.add_parser(
+        "gbz73",
+        help="run the FP8 clause matrix and print the coverage table",
+        description="Run every row of the FP8 clause matrix against every operator in the "
+        "catalogue and print the result beside the coverage the text declares.",
+    )
+    _add_backend_arguments(matrix)
+    matrix.add_argument(
+        "--ops", default=None, metavar="LIST", help="comma separated operator names"
+    )
+    matrix.add_argument(
+        "--features", default=None, metavar="LIST", help="comma separated row ids, e.g. A1,A2,B3"
+    )
+    matrix.add_argument(
+        "--json", action="store_true", help="print the report as JSON instead of a table"
     )
     return parser
 
@@ -301,6 +325,67 @@ def _test(args: argparse.Namespace) -> int:
         )
     print("running: pytest " + " ".join(argv))
     return int(pytest.main(argv))
+
+
+def _gbz73(args: argparse.Namespace) -> int:
+    from .gbz73 import runner as matrix
+    from .gbz73.features import FEATURES
+    from .gbz73.ops import OPS
+
+    discovered = discover()
+    try:
+        selected = resolve_spec(args.backend, discovered)
+    except BackendNotFound as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+    backends = [b for b in selected if b.is_available()]
+    if not backends:
+        print(
+            f"error: no backend selected is available ({', '.join(b.name for b in selected)})",
+            file=sys.stderr,
+        )
+        return 2
+
+    ops = OPS
+    if args.ops:
+        wanted = {name.strip() for name in args.ops.split(",") if name.strip()}
+        unknown = wanted - {op.name for op in OPS}
+        if unknown:
+            print(f"error: unknown operator(s): {', '.join(sorted(unknown))}", file=sys.stderr)
+            return 2
+        ops = tuple(op for op in OPS if op.name in wanted)
+
+    features = FEATURES
+    if args.features:
+        wanted = {name.strip().upper() for name in args.features.split(",") if name.strip()}
+        unknown = wanted - {feature.id for feature in FEATURES}
+        if unknown:
+            print(f"error: unknown row(s): {', '.join(sorted(unknown))}", file=sys.stderr)
+            return 2
+        features = tuple(feature for feature in FEATURES if feature.id in wanted)
+
+    failures = 0
+    for backend in backends:
+        report = matrix.run_all(backend, ops=ops, features=features)
+        if args.json:
+            import json
+
+            print(json.dumps(report.as_dict(), indent=2))
+        else:
+            print(
+                f"backend: {backend.name}  device_type={backend.device_type}  index={args.device_index}"
+            )
+            print(matrix.render_matrix(report, ops=tuple(op.name for op in ops)))
+            print()
+            print(matrix.render_summary(report))
+            print()
+            print(matrix.render_disclosure(report))
+            declared, exercised = matrix.coverage_gap(report)
+            print()
+            print(f"declared by the text: {declared} cells; exercised by this run: {exercised}")
+        failures += len(report.failed)
+    return 1 if failures else 0
 
 
 def _suite_directory():
