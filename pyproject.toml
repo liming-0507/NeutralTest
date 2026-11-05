@@ -3,13 +3,13 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "torch-mbt"
+name = "neutralTest"
 version = "0.1.0"
 description = "Vendor-neutral multi-backend conformance test harness for PyTorch operators"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Apache-2.0" }
-authors = [{ name = "torch-mbt contributors" }]
+authors = [{ name = "neutraltest contributors" }]
 keywords = [
   "pytorch",
   "pytest",
@@ -40,35 +40,35 @@ dependencies = ["torch>=2.1", "pytest>=7.4"]
 dev = ["ruff>=0.5", "mypy>=1.8", "pytest-cov>=5"]
 
 [project.urls]
-Homepage = "https://github.com/OWNER/torch-mbt"  # TODO: replace OWNER with the publishing org
-Issues = "https://github.com/OWNER/torch-mbt/issues"
+Homepage = "https://github.com/OWNER/neutraltest"  # TODO: replace OWNER with the publishing org
+Issues = "https://github.com/OWNER/neutraltest/issues"
 
 [project.scripts]
-torch-mbt = "torch_mbt.cli:main"
+neutraltest = "neutraltest.cli:main"
 
 [project.entry-points.pytest11]
-mbt = "torch_mbt.pytest_plugin"
+nt = "neutraltest.pytest_plugin"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-torch_mbt = ["py.typed"]
+neutraltest = ["py.typed"]
 
 [tool.pytest.ini_options]
 minversion = "7.4"
-testpaths = ["tests", "src/torch_mbt/conformance"]
+testpaths = ["tests", "src/neutraltest/conformance"]
 pythonpath = ["src", "tests"]
 addopts = "-ra --strict-markers --strict-config"
 markers = [
-  "mbt_backend(*names): run this test only on the listed backends",
-  "mbt_exclude_backend(*names): never run this test on the listed backends",
-  "mbt_family(name): operator family, used for reporting grouping",
-  "mbt_op(name): operator name, used for reporting grouping",
-  "mbt_grad: test exercises the autograd path",
-  "mbt_slow: long running test, deselect with -m 'not mbt_slow'",
+  "nt_backend(*names): run this test only on the listed backends",
+  "nt_exclude_backend(*names): never run this test on the listed backends",
+  "nt_family(name): operator family, used for reporting grouping",
+  "nt_op(name): operator name, used for reporting grouping",
+  "nt_grad: test exercises the autograd path",
+  "nt_slow: long running test, deselect with -m 'not nt_slow'",
 ]
-filterwarnings = ["error::DeprecationWarning:torch_mbt.*"]
+filterwarnings = ["error::DeprecationWarning:neutraltest.*"]
 
 [tool.ruff]
 line-length = 100
@@ -86,7 +86,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["PT", "B011"]
-"src/torch_mbt/conformance/**" = ["PT", "B011"]
+"src/neutraltest/conformance/**" = ["PT", "B011"]
 "docs/**" = ["E501"]
 
 [tool.ruff.format]

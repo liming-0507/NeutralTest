@@ -1,4 +1,4 @@
-"""``python -m torch_mbt`` — same entry point as the ``torch-mbt`` script."""
+"""``python -m neutraltest`` — same entry point as the ``neutraltest`` script."""
 
 from __future__ import annotations
 

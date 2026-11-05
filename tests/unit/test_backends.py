@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 import torch
 
-from torch_mbt.backends import (
+from neutraltest.backends import (
     Backend,
     CpuBackend,
     CudaBackend,
@@ -16,7 +16,7 @@ from torch_mbt.backends import (
     builtin_backends,
     iter_devices,
 )
-from torch_mbt.errors import BackendUnavailable
+from neutraltest.errors import BackendUnavailable
 
 
 @pytest.fixture

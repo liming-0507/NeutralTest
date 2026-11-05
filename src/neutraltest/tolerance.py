@@ -91,7 +91,7 @@ def tolerance_for(
         dtype: dtype of the *device* result being judged.
         kind: arithmetic class, one of :data:`KINDS`.
         multiplier: extra relaxation, normally
-            :attr:`torch_mbt.policy.RunPolicy.tolerance_multiplier`.
+            :attr:`neutraltest.policy.RunPolicy.tolerance_multiplier`.
 
     Non-floating dtypes (integer, bool) are always compared exactly.
     """
@@ -120,5 +120,5 @@ def tolerance_for(
 
 
 def describe(dtype: torch.dtype) -> str:
-    """Human readable one-liner used by ``torch-mbt info``."""
+    """Human readable one-liner used by ``neutraltest info``."""
     return ", ".join(f"{kind}: {tolerance_for(dtype, kind)}" for kind in sorted(KINDS))

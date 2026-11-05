@@ -2,7 +2,7 @@
 
 PyTorch only dispatches to device types it was compiled with (`cpu`, `cuda`,
 `xpu`, `mps`, `meta`, …). A vendor accelerator that is not in that list has two
-options, and `torch-mbt` has to work with both.
+options, and `neutraltest` has to work with both.
 
 ## Model A — register as `privateuse1` (no torch rebuild)
 
@@ -34,12 +34,12 @@ like `torch.cuda`. What matters for a test harness:
 | After the rename `privateuse1` is **no longer a valid device string** | match on both names, never construct `privateuse1:0` |
 | Everything hangs off `torch._C._get_privateuse1_backend_name()` | that is the only reliable way to learn the name |
 
-`torch-mbt` models this as the `privateuse1` adapter, which is always present but
+`neutraltest` models this as the `privateuse1` adapter, which is always present but
 only *available* when a device module answers:
 
 ```bash
-torch-mbt info                      # lists the registered name, or "privateuseone" when free
-torch-mbt test --list-backends      # what this interpreter can actually reach
+neutraltest info                      # lists the registered name, or "privateuseone" when free
+neutraltest test --list-backends      # what this interpreter can actually reach
 ```
 
 `tests/behavior/test_privateuse1_stub.py` exercises the whole path with a stub
@@ -60,7 +60,7 @@ Practical consequences:
 
 - `--backend=auto` is what you want: it selects whatever this interpreter can
   actually reach, whichever model the vendor chose.
-- `torch-mbt doctor --backend=...` is the boundary test — it proves the build can
+- `neutraltest doctor --backend=...` is the boundary test — it proves the build can
   allocate, compute, backpropagate and move data before any operator result is
   blamed on the operator.
 - Do not name backends after products in the suite: `--backend=cuda` in the
@@ -69,7 +69,7 @@ Practical consequences:
 ## Model C — vendor patches torch itself
 
 Also seen in practice: a full PyTorch source tree with vendor patches, distributed
-as a source archive or a container image. Nothing changes for `torch-mbt`: install
+as a source archive or a container image. Nothing changes for `neutraltest`: install
 their build, then `pip install -e . --no-deps` and run the suite. Do not rebuild
 their torch to run tests (see [space.md](space.md)).
 
@@ -91,11 +91,11 @@ The load-bearing parts:
 
 ## Checklist before pointing the suite at a new device
 
-1. `torch-mbt info` — the device is listed, available, with the expected count.
-2. `torch-mbt doctor --backend=<name>` — allocate / elementwise / matmul /
+1. `neutraltest info` — the device is listed, available, with the expected count.
+2. `neutraltest doctor --backend=<name>` — allocate / elementwise / matmul /
    reduction / softmax / backward / transfer all pass.
-3. `torch-mbt test --backend=<name> --on-unsupported=skip -rs` — the operator
+3. `neutraltest test --backend=<name> --on-unsupported=skip -rs` — the operator
    matrix runs; every skip is a named missing kernel, not a silent no-op.
-4. `torch-mbt test --backend=<name> --mbt-report report.json` — keep the JSON:
+4. `neutraltest test --backend=<name> --nt-report report.json` — keep the JSON:
    it records backend, family, outcome and dtype per test, which is what a
    conformance claim should cite.

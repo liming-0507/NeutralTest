@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from torch_mbt.policy import (
+from neutraltest.policy import (
     RunPolicy,
     get_policy,
     patched_policy,

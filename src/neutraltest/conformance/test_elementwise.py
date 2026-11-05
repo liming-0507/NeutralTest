@@ -5,9 +5,9 @@ from __future__ import annotations
 import pytest
 import torch
 
-from torch_mbt.conformance.support import binary, params, positive, run_case, unary
-from torch_mbt.seeding import randn
-from torch_mbt.testing import OpCase
+from neutraltest.conformance.support import binary, params, positive, run_case, unary
+from neutraltest.seeding import randn
+from neutraltest.testing import OpCase
 
 F32_BF16 = (torch.float32, torch.bfloat16)
 

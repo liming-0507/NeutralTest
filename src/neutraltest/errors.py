@@ -1,4 +1,4 @@
-"""Exception types used across :mod:`torch_mbt`."""
+"""Exception types used across :mod:`neutraltest`."""
 
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ class UnsupportedByBackend(RuntimeError):
 
     This is deliberately *not* a test skip by itself: a conformance suite should
     report a missing operator as a finding.  Use
-    :func:`torch_mbt.testing.unsupported_policy` (or ``--on-unsupported=skip``)
+    :func:`neutraltest.testing.unsupported_policy` (or ``--on-unsupported=skip``)
     to downgrade it to a skip.
     """
 

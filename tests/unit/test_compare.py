@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 import torch
 
-from torch_mbt.compare import assert_all_finite, assert_close, assert_grad_close, flatten, to_cpu
-from torch_mbt.tolerance import Tolerance
+from neutraltest.compare import assert_all_finite, assert_close, assert_grad_close, flatten, to_cpu
+from neutraltest.tolerance import Tolerance
 
 
 def test_identical_tensors_pass() -> None:

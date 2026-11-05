@@ -13,9 +13,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-import torch_mbt
+import neutraltest
 
-SRC = Path(torch_mbt.__file__).resolve().parent.parent
+SRC = Path(neutraltest.__file__).resolve().parent.parent
 
 BASIC_SUITE = """
 import pytest
@@ -30,13 +30,13 @@ def test_ones(backend, device):
     assert torch.equal(torch.ones(3, device=device).cpu(), torch.ones(3))
 
 
-@pytest.mark.mbt_backend("cuda")
+@pytest.mark.nt_backend("cuda")
 def test_cuda_only(backend):
     assert backend.name == "cuda"
 """
 
 UNSUPPORTED_SUITE = """
-from torch_mbt.errors import UnsupportedByBackend
+from neutraltest.errors import UnsupportedByBackend
 
 
 def test_missing_kernel(backend):
@@ -53,14 +53,14 @@ def run_pytest(suite: Path, *arguments: str) -> subprocess.CompletedProcess:
     env = dict(os.environ)
     env["PYTHONPATH"] = str(SRC) + os.pathsep + env.get("PYTHONPATH", "")
     env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
-    env.pop("TORCH_MBT_BACKEND", None)
+    env.pop("NEUTRALTEST_BACKEND", None)
     return subprocess.run(
         [
             sys.executable,
             "-m",
             "pytest",
             "-p",
-            "torch_mbt.pytest_plugin",
+            "neutraltest.pytest_plugin",
             str(suite),
             "-q",
             *arguments,
@@ -114,7 +114,7 @@ def test_list_backends_short_circuits_the_session(tmp_path: Path) -> None:
 def test_json_report_is_written_with_backend_attribution(tmp_path: Path) -> None:
     suite = _write(tmp_path, "test_basic.py", BASIC_SUITE)
     report = tmp_path / "report.json"
-    result = run_pytest(suite, "--backend=cpu", f"--mbt-report={report}")
+    result = run_pytest(suite, "--backend=cpu", f"--nt-report={report}")
     assert result.returncode == 0, result.stdout + result.stderr
     payload = json.loads(report.read_text(encoding="utf-8"))
     assert payload["backends"]["cpu"]["passed"] == 2
@@ -125,15 +125,15 @@ def test_json_report_is_written_with_backend_attribution(tmp_path: Path) -> None
 def test_terminal_summary_is_printed(tmp_path: Path) -> None:
     suite = _write(tmp_path, "test_basic.py", BASIC_SUITE)
     result = run_pytest(suite, "--backend=cpu")
-    assert "torch-mbt summary" in result.stdout
+    assert "neutralTest summary" in result.stdout
     assert "backend" in result.stdout
     assert "unsupported" in result.stdout
 
 
 def test_summary_can_be_silenced(tmp_path: Path) -> None:
     suite = _write(tmp_path, "test_basic.py", BASIC_SUITE)
-    result = run_pytest(suite, "--backend=cpu", "--mbt-no-summary")
-    assert "torch-mbt summary" not in result.stdout
+    result = run_pytest(suite, "--backend=cpu", "--nt-no-summary")
+    assert "neutralTest summary" not in result.stdout
 
 
 def test_unsupported_policy_fails_by_default(tmp_path: Path) -> None:
@@ -169,5 +169,5 @@ def test_report_header_shows_the_selection(tmp_path: Path) -> None:
     suite = _write(tmp_path, "test_basic.py", BASIC_SUITE)
     # -q suppresses the header block, so this one run asks for verbosity.
     result = run_pytest(suite, "--backend=cpu", "-v")
-    assert "torch-mbt: backends = cpu" in result.stdout
+    assert "neutralTest: backends = cpu" in result.stdout
     assert "tolerance_multiplier:1" in result.stdout

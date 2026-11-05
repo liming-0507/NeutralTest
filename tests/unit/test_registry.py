@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import pytest
 
-from torch_mbt.backends import Backend, Mechanism
-from torch_mbt.backends.registry import (
+from neutraltest.backends import Backend, Mechanism
+from neutraltest.backends.registry import (
     ENTRY_POINT_GROUP,
     discover,
     find_backend,
     plugin_backends,
     resolve_spec,
 )
-from torch_mbt.errors import BackendNotFound
+from neutraltest.errors import BackendNotFound
 
 
 class StubBackend(Backend):
@@ -70,7 +70,7 @@ def test_adapters_for_the_same_device_type_are_deduplicated() -> None:
 
 
 def test_entry_point_group_name_is_public_api() -> None:
-    assert ENTRY_POINT_GROUP == "torch_mbt.backends"
+    assert ENTRY_POINT_GROUP == "neutraltest.backends"
 
 
 def test_plugin_discovery_returns_a_list_even_when_nothing_is_installed() -> None:

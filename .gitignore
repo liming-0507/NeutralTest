@@ -19,8 +19,8 @@ htmlcov/
 coverage.xml
 *.junit.xml
 
-# Reports produced by --mbt-report
-*.mbt.json
+# Reports produced by --nt-report
+*.nt.json
 report.json
 
 # Editors

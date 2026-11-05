@@ -7,9 +7,9 @@ import pytest
 import torch
 import torch.nn.functional as F
 
-from torch_mbt.conformance.support import params, run_case
-from torch_mbt.seeding import randn
-from torch_mbt.testing import OpCase
+from neutraltest.conformance.support import params, run_case
+from neutraltest.seeding import randn
+from neutraltest.testing import OpCase
 
 
 def _sdpa(dtype: torch.dtype, generator: torch.Generator):

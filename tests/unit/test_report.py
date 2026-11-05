@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from torch_mbt.report import Recorder, Result, render_table
+from neutraltest.report import Recorder, Result, render_table
 
 
 def _recorder() -> Recorder:
@@ -87,7 +87,7 @@ def test_durations_are_summed_per_backend() -> None:
 
 
 def test_json_report_round_trips(tmp_path) -> None:
-    target = tmp_path / "reports" / "mbt.json"
+    target = tmp_path / "reports" / "nt.json"
     written = _recorder().write_json(target)
     assert written == target
     payload = json.loads(target.read_text(encoding="utf-8"))

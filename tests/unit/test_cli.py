@@ -7,9 +7,9 @@ import subprocess
 import sys
 from pathlib import Path
 
-import torch_mbt
+import neutraltest
 
-SRC = Path(torch_mbt.__file__).resolve().parent.parent
+SRC = Path(neutraltest.__file__).resolve().parent.parent
 
 
 def run_cli(
@@ -17,9 +17,9 @@ def run_cli(
 ) -> subprocess.CompletedProcess:
     env = dict(os.environ)
     env["PYTHONPATH"] = str(SRC) + os.pathsep + env.get("PYTHONPATH", "")
-    env.pop("TORCH_MBT_BACKEND", None)
+    env.pop("NEUTRALTEST_BACKEND", None)
     return subprocess.run(
-        [sys.executable, "-m", "torch_mbt", *arguments],
+        [sys.executable, "-m", "neutraltest", *arguments],
         capture_output=True,
         text=True,
         env=env,
@@ -31,7 +31,7 @@ def run_cli(
 def test_version_flag() -> None:
     result = run_cli("--version")
     assert result.returncode == 0
-    assert torch_mbt.__version__ in result.stdout
+    assert neutraltest.__version__ in result.stdout
 
 
 def test_info_lists_the_discovered_backends() -> None:

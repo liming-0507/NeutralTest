@@ -1,10 +1,10 @@
-# torch-mbt
+# neutralTest
 
 **Vendor-neutral multi-backend conformance testing for PyTorch operators.**
 
 <sub>English · [简体中文](README.zh-CN.md)</sub>
 
-`torch-mbt` is a pytest plugin plus a library. It answers one question for any
+`neutraltest` is a pytest plugin plus a library. It answers one question for any
 PyTorch build:
 
 > Does this accelerator compute the same numbers as reference PyTorch — for the
@@ -13,8 +13,8 @@ PyTorch build:
 It does that without knowing which accelerator it is looking at.
 
 ```console
-$ torch-mbt info
-torch-mbt 0.1.0
+$ neutraltest info
+neutraltest 0.1.0
 python      3.13.13 (x86_64)
 torch       2.15.0+cpu
 registered  privateuseone
@@ -47,7 +47,7 @@ Two consequences follow, and both hurt testability:
    definition of "passing", and its own conventions for comparing against the
    CPU reference. Cross-vendor numbers stop being comparable.
 
-`torch-mbt` takes the opposite approach: **test mechanisms, not brands.** The
+`neutraltest` takes the opposite approach: **test mechanisms, not brands.** The
 framework parametrises every test over the *dispatch mechanisms* a machine
 actually exposes (`cpu`, `cuda`, `xpu`, `mps`, `privateuse1`). Whatever device
 an adapter ends up pointing at, the same operator matrix, the same tolerances
@@ -62,7 +62,7 @@ entry points (see [docs/backends.md](docs/backends.md)).
 ## Install
 
 ```bash
-pip install torch-mbt
+pip install neutraltest
 ```
 
 From a checkout:
@@ -77,19 +77,19 @@ Requires Python ≥ 3.10, `torch` ≥ 2.1 and `pytest` ≥ 7.4.
 ## Quick start
 
 ```bash
-torch-mbt info                    # what this machine exposes
-torch-mbt doctor                  # 7 smoke checks per available backend
-torch-mbt test                    # run the bundled conformance suite
-torch-mbt test --backend=cpu -k matmul
+neutraltest info                    # what this machine exposes
+neutraltest doctor                  # 7 smoke checks per available backend
+neutraltest test                    # run the bundled conformance suite
+neutraltest test --backend=cpu -k matmul
 ```
 
 Or drive pytest directly — the plugin is registered by the `pytest11` entry
 point, so no `conftest.py` is needed:
 
 ```bash
-pytest --backend=cpu src/torch_mbt/conformance
+pytest --backend=cpu src/neutraltest/conformance
 pytest --backend=all --on-unsupported=skip      # unavailable backends are skipped, not failed
-pytest --backend=cpu,xpu --mbt-report=report.json
+pytest --backend=cpu,xpu --nt-report=report.json
 ```
 
 ### `--backend` specs
@@ -102,7 +102,7 @@ pytest --backend=cpu,xpu --mbt-report=report.json
 | `cpu,xpu` | a comma-separated list, order preserved |
 | `*pu` | a shell glob over backend names, device types and aliases |
 
-The `TORCH_MBT_BACKEND` environment variable is the fallback when the option is
+The `NEUTRALTEST_BACKEND` environment variable is the fallback when the option is
 absent, so CI can select a backend without editing the command line.
 
 ### Options
@@ -115,18 +115,18 @@ absent, so CI can select a backend without editing the command line.
 | `--backend-strict` | off | unavailable requested backend is a usage error, not a skip |
 | `--on-unsupported` | `fail` | what to do when an operator is not implemented: `fail`, `skip`, `xfail` |
 | `--tolerance-multiplier` | `1.0` | global scale on the tolerance budget |
-| `--mbt-seed` | `20240101` | seed for generated inputs |
-| `--mbt-report PATH` | — | write a JSON result report |
-| `--mbt-no-summary` | off | suppress the terminal summary table |
+| `--nt-seed` | `20240101` | seed for generated inputs |
+| `--nt-report PATH` | — | write a JSON result report |
+| `--nt-no-summary` | off | suppress the terminal summary table |
 
-Markers, so a run can be narrowed without touching test code: `mbt_backend`,
-`mbt_exclude_backend`, `mbt_family`, `mbt_op`, `mbt_grad`, `mbt_slow`.
+Markers, so a run can be narrowed without touching test code: `nt_backend`,
+`nt_exclude_backend`, `nt_family`, `nt_op`, `nt_grad`, `nt_slow`.
 
 ### What a run looks like
 
 ```console
-$ pytest -q --backend=cpu src/torch_mbt/conformance
-=============================== torch-mbt summary ===============================
+$ pytest -q --backend=cpu src/neutraltest/conformance
+=============================== neutraltest summary ===============================
 backend  passed  failed  skipped  xfailed  xpassed  error  unsupported  time
 -------  ------  ------  -------  -------  -------  -----  -----------  -----
 cpu      161     0       0        0        0        0      0            0.34s
@@ -143,7 +143,7 @@ builder, the dtypes to try, and the numerical class the operator belongs to.
 
 ```python
 import torch
-from torch_mbt import OpCase, check_case, randn
+from neutraltest import OpCase, check_case, randn
 
 def _build(dtype, generator):
     x = randn((8, 16), dtype, generator)
@@ -161,8 +161,8 @@ ADD = OpCase(
     grad_inputs=(0, 1),
 )
 
-def test_add(mbt):
-    check_case(ADD, mbt.backend, torch.float32)
+def test_add(nt):
+    check_case(ADD, nt.backend, torch.float32)
 ```
 
 `check_case` does the work:
@@ -218,7 +218,7 @@ no hardware is needed to keep it honest.
 ## Tolerances
 
 Comparing floating point across implementations needs a budget, not a constant.
-`torch-mbt` derives one from the dtype and the operator's numerical class:
+`neutraltest` derives one from the dtype and the operator's numerical class:
 
 | kind | example ops | scale |
 | --- | --- | --- |
@@ -241,7 +241,7 @@ operator that is wrong by a factor of a thousand.
 An adapter is a small class describing *how to reach* the device:
 
 ```python
-from torch_mbt import Backend, Mechanism
+from neutraltest import Backend, Mechanism
 
 class AcceleratorBackend(Backend):
     name = "accelerator"            # what --backend matches
@@ -259,7 +259,7 @@ class AcceleratorBackend(Backend):
 Ship it as an entry point and the plugin discovers it automatically:
 
 ```toml
-[project.entry-points."torch_mbt.backends"]
+[project.entry-points."neutraltest.backends"]
 accelerator = "vendorx.torch_test:AcceleratorBackend"
 ```
 
@@ -270,9 +270,9 @@ itself: [docs/backends.md](docs/backends.md).
 
 | Command | Purpose |
 | --- | --- |
-| `torch-mbt info` | version, torch build, registered `privateuse1` name, backend table, dtype support matrix, tolerance budgets |
-| `torch-mbt doctor` | 7 smoke checks per available backend (allocate, elementwise, matmul, reduction, softmax, backward, host↔device transfer); exits non-zero if any check fails |
-| `torch-mbt test [pytest args]` | runs the bundled suite (shipped inside the package); unknown arguments are forwarded to pytest |
+| `neutraltest info` | version, torch build, registered `privateuse1` name, backend table, dtype support matrix, tolerance budgets |
+| `neutraltest doctor` | 7 smoke checks per available backend (allocate, elementwise, matmul, reduction, softmax, backward, host↔device transfer); exits non-zero if any check fails |
+| `neutraltest test [pytest args]` | runs the bundled suite (shipped inside the package); unknown arguments are forwarded to pytest |
 
 `doctor` is the fastest way to tell "the device is not there" from "the device
 is there and computes the wrong thing".
@@ -280,7 +280,7 @@ is there and computes the wrong thing".
 ## Repository layout
 
 ```
-src/torch_mbt/
+src/neutraltest/
   backends/      Backend ABC, built-in adapters, discovery and --backend parsing
   testing.py     OpCase, input building, check_case / check_backward
   compare.py     tensor comparison, exact/fuzzy, gradient comparison

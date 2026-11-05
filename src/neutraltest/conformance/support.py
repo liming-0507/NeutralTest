@@ -1,7 +1,7 @@
 """Helpers shared by the conformance modules.
 
 The conformance suite is deliberately organised the same way for every operator:
-a module declares a list of :class:`~torch_mbt.testing.OpCase` objects and hands
+a module declares a list of :class:`~neutraltest.testing.OpCase` objects and hands
 them to :func:`test_operator`, which parametrises over dtype and runs the case
 through the backend contract.
 """
@@ -14,8 +14,8 @@ from typing import Any
 import pytest
 import torch
 
-from torch_mbt.seeding import randn
-from torch_mbt.testing import OpCase, check_backward, check_case, unsupported_policy
+from neutraltest.seeding import randn
+from neutraltest.testing import OpCase, check_backward, check_case, unsupported_policy
 
 __all__ = ["params", "run", "run_case", "unary", "binary", "positive", "short_dtype"]
 
@@ -28,11 +28,11 @@ def params(cases: Sequence[OpCase]) -> list[Any]:
     """One pytest parameter per (case, dtype), carrying the report markers."""
     out: list[Any] = []
     for case in cases:
-        marks = [pytest.mark.mbt_family(case.family), pytest.mark.mbt_op(case.op)]
+        marks = [pytest.mark.nt_family(case.family), pytest.mark.nt_op(case.op)]
         if case.grad:
-            marks.append(pytest.mark.mbt_grad)
+            marks.append(pytest.mark.nt_grad)
         if "slow" in case.tags:
-            marks.append(pytest.mark.mbt_slow)
+            marks.append(pytest.mark.nt_slow)
         for dtype in case.dtypes:
             out.append(
                 pytest.param(

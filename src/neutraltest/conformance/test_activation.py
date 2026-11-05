@@ -6,9 +6,9 @@ import pytest
 import torch
 import torch.nn.functional as F
 
-from torch_mbt.conformance.support import params, run_case, unary
-from torch_mbt.seeding import randn
-from torch_mbt.testing import OpCase
+from neutraltest.conformance.support import params, run_case, unary
+from neutraltest.seeding import randn
+from neutraltest.testing import OpCase
 
 F32_BF16 = (torch.float32, torch.bfloat16)
 

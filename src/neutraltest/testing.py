@@ -60,7 +60,7 @@ class OpCase:
         fn: callable to test; receives the built positional/keyword arguments.
         build: ``build(dtype, generator) -> (args, kwargs)``, executed on CPU.
         dtypes: input dtypes to exercise.
-        kind: tolerance class, see :data:`torch_mbt.tolerance.KINDS`.
+        kind: tolerance class, see :data:`neutraltest.tolerance.KINDS`.
         reference_dtype: precision used for the CPU golden value.  ``None`` means
             "same dtype as the device run".
         grad: also check the backward pass.

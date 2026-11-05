@@ -1,4 +1,4 @@
-"""``torch-mbt`` command line: inspect backends, smoke test them, run the suite.
+"""``neutraltest`` command line: inspect backends, smoke test them, run the suite.
 
 Three verbs, deliberately few:
 
@@ -62,10 +62,10 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="torch-mbt",
+        prog="neutraltest",
         description="Vendor-neutral multi-backend conformance testing for PyTorch.",
     )
-    parser.add_argument("--version", action="version", version=f"torch-mbt {__version__}")
+    parser.add_argument("--version", action="version", version=f"neutraltest {__version__}")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     info = subparsers.add_parser("info", help="list discovered backends")
@@ -78,7 +78,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "test",
         help="run the conformance suite with pytest",
         description="Run the bundled conformance suite. Any argument this command does not "
-        "recognise is forwarded to pytest verbatim, e.g. 'torch-mbt test --backend=cpu -q'.",
+        "recognise is forwarded to pytest verbatim, e.g. 'neutraltest test --backend=cpu -q'.",
     )
     _add_backend_arguments(test)
     test.add_argument(
@@ -91,7 +91,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def _forward_options(tokens: Sequence[str]) -> argparse.Namespace:
     """Split ``test`` arguments into our two options and a pytest tail."""
-    parser = argparse.ArgumentParser(prog="torch-mbt test", add_help=False)
+    parser = argparse.ArgumentParser(prog="neutraltest test", add_help=False)
     parser.add_argument("--backend", default=None, metavar="SPEC")
     parser.add_argument("--device-index", type=int, default=None)
     known, rest = parser.parse_known_args(list(tokens))
@@ -131,7 +131,7 @@ def _info(args: argparse.Namespace) -> int:
         return 2
     chosen = {backend.name for backend in selected}
 
-    print(f"torch-mbt {__version__}")
+    print(f"neutraltest {__version__}")
     print(f"python      {platform.python_version()} ({platform.machine()})")
     print(f"torch       {torch.__version__}")
     print(f"registered  {_privateuse1_name()}")

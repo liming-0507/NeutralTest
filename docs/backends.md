@@ -35,7 +35,7 @@ Two members are abstract; everything else has a sensible default.
 
 ```python
 import torch
-from torch_mbt import Backend, Mechanism
+from neutraltest import Backend, Mechanism
 
 
 class VendorXBackend(Backend):
@@ -69,7 +69,7 @@ class VendorXBackend(Backend):
 | `manual_seed(seed)` | `torch.manual_seed` | the device has its own RNG |
 | `new_stream()` / `stream()` / `has_streams()` | `torch.Stream` via the module, or unsupported | streams exist |
 | `supports_dtype(dtype)` | probes `torch.empty(1, dtype=..., device=...)` | a cheaper/safer probe exists |
-| `properties(index)` | dict of `name`/`device_type`/`mechanism`/`index`/`capability`/`memory` | extra diagnostics are useful in `torch-mbt info` |
+| `properties(index)` | dict of `name`/`device_type`/`mechanism`/`index`/`capability`/`memory` | extra diagnostics are useful in `neutraltest info` |
 
 Two defaults are load-bearing and worth repeating:
 
@@ -85,7 +85,7 @@ Two defaults are load-bearing and worth repeating:
 
 ### In this repository
 
-Add the class to `src/torch_mbt/backends/builtin.py` and include it in
+Add the class to `src/neutraltest/backends/builtin.py` and include it in
 `builtin_backends()`. Only do this for mechanisms that exist in upstream
 PyTorch — the built-ins deliberately describe the platform, not a vendor.
 
@@ -95,7 +95,7 @@ Ship an entry point; the plugin discovers it at startup, no `conftest.py`
 needed:
 
 ```toml
-[project.entry-points."torch_mbt.backends"]
+[project.entry-points."neutraltest.backends"]
 vendorx = "vendorx.torch_test:VendorXBackend"
 ```
 
@@ -110,7 +110,7 @@ This keeps a vendor adapter from being shadowed by the built-in generic
 ### Ad hoc, inside a test session
 
 ```python
-from torch_mbt.backends import discover
+from neutraltest.backends import discover
 
 backends = discover(extra=(VendorXBackend(),))
 ```
@@ -130,10 +130,10 @@ usage error listing the known ones (`--backend-strict` extends that to
 
 ## What the framework will do with your adapter
 
-`torch-mbt doctor` runs seven checks per available backend — allocate, elementwise,
+`neutraltest doctor` runs seven checks per available backend — allocate, elementwise,
 matmul, reduction, softmax, backward, host↔device round-trip — each followed by
 `synchronize()`, so asynchronous failures surface at the right check instead of
-in the next one. If those pass and `pytest --backend=vendorx src/torch_mbt/conformance`
+in the next one. If those pass and `pytest --backend=vendorx src/neutraltest/conformance`
 still fails, the adapter is fine and the operator is not.
 
 ## Testing an adapter without hardware

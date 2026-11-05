@@ -1,7 +1,7 @@
 # Space: living next to a very large dependency
 
 PyTorch is ~800 MB unpacked for a CPU build, several GB with the CUDA stack, and
-it is a fast-moving upstream project. `torch-mbt` therefore treats it strictly as
+it is a fast-moving upstream project. `neutraltest` therefore treats it strictly as
 a **runtime dependency you install once**, never as something to copy, patch in
 place or check in.
 
@@ -22,7 +22,7 @@ Measured on a CPU-only development machine (Linux, torch 2.15.0+cpu):
 `pyproject.toml` asks for `torch>=2.1`; nothing imports a copy from the tree. That
 keeps the repository small, the license situation clean, and the installed torch
 patches applicable — a vendor that needs a modified dispatch layer installs *its
-own* torch build, and `torch-mbt` tests whatever it finds.
+own* torch build, and `neutraltest` tests whatever it finds.
 
 The same applies to test data: inputs are generated from a seed at run time, and
 reference values are computed on the fly in CPU `float64`. There are no golden
@@ -109,10 +109,10 @@ dispatch layer:
 1. build **once**, on a machine big enough, into a wheel;
 2. publish that wheel (local index, artifact store, container image);
 3. install it like any other torch (`pip install ./torch-....whl`), then run
-   `torch-mbt doctor` and `torch-mbt test`.
+   `neutraltest doctor` and `neutraltest test`.
 
 The same logic applies to container images: start from the vendor's image (which
-already carries its torch and runtime), add `torch-mbt` on top — do not rebuild
+already carries its torch and runtime), add `neutraltest` on top — do not rebuild
 torch inside the test image.
 
 ### 6. Housekeeping that actually reclaims space

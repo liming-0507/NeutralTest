@@ -37,7 +37,7 @@ module.current_device = lambda: 0
 module.set_device = lambda index: None
 torch._register_device_module(name, module)
 
-from torch_mbt.backends import discover
+from neutraltest.backends import discover
 
 backend = next(b for b in discover() if b.name == "privateuse1")
 report = {
@@ -92,7 +92,7 @@ def test_unavailable_privateuse1_reports_no_devices() -> None:
 
 
 def test_unavailable_privateuse1_refuses_a_device() -> None:
-    from torch_mbt.backends import discover
+    from neutraltest.backends import discover
 
     # In this interpreter nothing is registered, so the built-in placeholder is
     # unavailable and must not invent device 0.

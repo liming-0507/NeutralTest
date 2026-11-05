@@ -1,7 +1,7 @@
 """Backend discovery and ``--backend`` resolution.
 
 Discovery order is: built-in mechanism adapters, then third-party adapters
-published under the ``torch_mbt.backends`` entry point group.  Results are
+published under the ``neutraltest.backends`` entry point group.  Results are
 de-duplicated by device type, because two adapters that resolve to the same
 ``torch.device`` type would run every test twice for no benefit.
 """
@@ -25,9 +25,9 @@ __all__ = [
 
 #: Entry point group a third-party adapter registers itself under::
 #:
-#:     [project.entry-points."torch_mbt.backends"]
+#:     [project.entry-points."neutraltest.backends"]
 #:     acme = "acme_torch.backend:AcmeBackend"
-ENTRY_POINT_GROUP = "torch_mbt.backends"
+ENTRY_POINT_GROUP = "neutraltest.backends"
 
 
 def plugin_backends() -> list[Backend]:
@@ -44,7 +44,7 @@ def plugin_backends() -> list[Backend]:
             import warnings
 
             warnings.warn(
-                f"torch_mbt: entry point {entry_point.name!r} failed to load: {exc!r}",
+                f"neutraltest: entry point {entry_point.name!r} failed to load: {exc!r}",
                 stacklevel=2,
             )
     return found

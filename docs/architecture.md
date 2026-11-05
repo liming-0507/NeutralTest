@@ -1,10 +1,10 @@
 # Architecture
 
-`torch-mbt` is a thin, layered harness. Each layer has one job, and only the top
+`neutraltest` is a thin, layered harness. Each layer has one job, and only the top
 two know that pytest exists.
 
 ```
-        src/torch_mbt/conformance/*.py      data: OpCase lists
+        src/neutraltest/conformance/*.py      data: OpCase lists
                               │                 (one file per operator family)
                               ▼
   ┌───────────────────────────────────────────────────────────────────────┐
@@ -46,7 +46,7 @@ interface — there is no `if vendor == ...` anywhere.
 Built-in adapters cover the mechanisms that exist in upstream PyTorch: `cpu`,
 `cuda`, `xpu`, `mps`, and `privateuse1` (whose device type is whatever
 `rename_privateuse1_backend()` set, if anything). Further adapters can be
-installed out of tree through the `torch_mbt.backends` entry point group; see
+installed out of tree through the `neutraltest.backends` entry point group; see
 [backends.md](backends.md).
 
 Discovery returns *unavailable* backends too. That is deliberate: pytest
@@ -128,7 +128,7 @@ Two consequences are handled explicitly:
 | Point | How |
 | --- | --- |
 | New backend | subclass `Backend`, install, register an entry point |
-| New operator coverage | append an `OpCase` to a module in `src/torch_mbt/conformance/` |
+| New operator coverage | append an `OpCase` to a module in `src/neutraltest/conformance/` |
 | New numerical class | add a scale to `KIND_SCALE` in `tolerance.py` |
 | Different CI semantics | `--on-unsupported`, `--tolerance-multiplier`, `--backend-strict` |
-| Machine-readable results | `--mbt-report results.json` |
+| Machine-readable results | `--nt-report results.json` |

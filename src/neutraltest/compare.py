@@ -5,7 +5,7 @@ Everything funnels through :func:`assert_close`, which:
 * flattens nested outputs (``topk`` returns a namedtuple, losses a scalar, ...),
 * moves both sides to CPU (device results must be comparable with a CPU golden),
 * promotes differing float dtypes instead of failing on dtype alone,
-* compares integers/bools exactly, floats with a :class:`~torch_mbt.tolerance.Tolerance`,
+* compares integers/bools exactly, floats with a :class:`~neutraltest.tolerance.Tolerance`,
 * reports the offending case id in the assertion message.
 
 ``check_dtype`` defaults to ``False`` because the golden value is intentionally
@@ -112,7 +112,7 @@ def assert_close(
         expected: Golden result, possibly at higher precision.
         tolerance: Explicit tolerance; overrides ``dtype``/``kind`` lookup.
         dtype: dtype used to look up the tolerance. Defaults to ``actual.dtype``.
-        kind: arithmetic class, see :data:`torch_mbt.tolerance.KINDS`.
+        kind: arithmetic class, see :data:`neutraltest.tolerance.KINDS`.
         multiplier: relaxes the tolerance; defaults to the run policy value.
         check_dtype: Require identical dtypes. Off by default on purpose.
         check_shape: Require identical shapes (default on).

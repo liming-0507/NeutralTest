@@ -6,7 +6,7 @@ import random
 
 import torch
 
-from torch_mbt.seeding import make_generator, rand, randn, seed_all, seeded
+from neutraltest.seeding import make_generator, rand, randn, seed_all, seeded
 
 
 def test_generator_is_deterministic() -> None:

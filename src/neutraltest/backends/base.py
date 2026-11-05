@@ -240,7 +240,7 @@ class Backend(ABC):
         return True
 
     def properties(self, index: int = 0) -> dict[str, Any]:
-        """Best-effort description, used by ``torch-mbt info``."""
+        """Best-effort description, used by ``neutraltest info``."""
         info: dict[str, Any] = {
             "name": self.name,
             "mechanism": str(self.mechanism),

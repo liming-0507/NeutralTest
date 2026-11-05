@@ -66,7 +66,7 @@ for py in ${PYTHONS//,/ }; do
     py_bin="$env_dir/bin/python"
 
     if ! uv pip install -q --python "$py_bin" -e "$ROOT_DIR" --no-deps >/dev/null 2>&1; then
-      echo "FAIL  could not install torch-mbt"; RESULTS+=("FAIL  $label  (install torch-mbt)"); FAILED=1; continue
+      echo "FAIL  could not install neutraltest"; RESULTS+=("FAIL  $label  (install neutraltest)"); FAILED=1; continue
     fi
 
     # torch from the CPU index ONLY: adding pypi.org as an extra index makes the

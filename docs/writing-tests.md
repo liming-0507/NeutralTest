@@ -1,14 +1,14 @@
 # Writing tests
 
 Two ways to use the harness: describe the operator as an `OpCase` and let
-`check_case` do everything (what `src/torch_mbt/conformance/` does), or call the
+`check_case` do everything (what `src/neutraltest/conformance/` does), or call the
 primitives yourself when the shape of the check does not fit.
 
 ## The fast path: `OpCase`
 
 ```python
 import torch
-from torch_mbt import OpCase, check_backward, check_case, randn
+from neutraltest import OpCase, check_backward, check_case, randn
 
 def _build(dtype, generator):
     x = randn((4, 8), dtype, generator)
@@ -27,8 +27,8 @@ MATMUL = OpCase(
     grad_inputs=(0, 1),         # positional args that require grad
 )
 
-def test_mm(mbt):
-    check_case(MATMUL, mbt.backend, torch.float32)
+def test_mm(nt):
+    check_case(MATMUL, nt.backend, torch.float32)
 ```
 
 | Field | Meaning |
@@ -61,7 +61,7 @@ def test_mm(mbt):
    `positive()`, `sqrt` wants `positive()`, `div` wants a non-zero denominator.
    A NaN in the reference turns a value check into a finiteness check.
 
-`src/torch_mbt/conformance/support.py` provides `unary`, `binary` and `positive`
+`src/neutraltest/conformance/support.py` provides `unary`, `binary` and `positive`
 builders, and the `params(cases)` helper that turns a list of cases into pytest
 parameters with the right marks:
 
@@ -79,7 +79,7 @@ def test_elementwise(case, dtype, backend):
 
 ```python
 import torch
-from torch_mbt import assert_close, assert_grad_close, move_to, tolerance_for
+from neutraltest import assert_close, assert_grad_close, move_to, tolerance_for
 
 def test_custom(backend, device):
     a = torch.linspace(-1, 1, 16, dtype=torch.float64)
@@ -103,15 +103,15 @@ Available pieces:
 | `seed_all(seed)` / `seeded(seed)` | deterministic RNG for a block |
 | `unsupported_policy(label)` | apply the run policy around a block |
 
-## The `mbt` fixture
+## The `nt` fixture
 
 ```python
-def test_something(mbt):
-    x = mbt.tensor(8, 16)                 # CPU randn -> device, float32
-    y = mbt.reference(x)                  # same values, CPU, float64
-    mbt.sync()                            # backend.synchronize()
-    tol = mbt.tolerance(torch.float32, "matmul")
-    print(mbt.backend.name, mbt.device, mbt.policy)
+def test_something(nt):
+    x = nt.tensor(8, 16)                 # CPU randn -> device, float32
+    y = nt.reference(x)                  # same values, CPU, float64
+    nt.sync()                            # backend.synchronize()
+    tol = nt.tolerance(torch.float32, "matmul")
+    print(nt.backend.name, nt.device, nt.policy)
 ```
 
 Other fixtures: `backend` (session-scoped, skips when unavailable), `device`
@@ -147,9 +147,9 @@ record than a new class.
 Raise it, do not skip it by hand:
 
 ```python
-from torch_mbt import UnsupportedByBackend
+from neutraltest import UnsupportedByBackend
 
-def test_fft(mbt):
+def test_fft(nt):
     if not hasattr(torch, "fft_plan"):
         raise UnsupportedByBackend("fft is not implemented for this backend")
 ```
@@ -163,16 +163,16 @@ at all. The summary table counts them in the `unsupported` column either way.
 ## Narrowing a run
 
 ```bash
-pytest src/torch_mbt/conformance -m "mbt_family('matmul')"
-pytest src/torch_mbt/conformance -m "mbt_grad"
-pytest src/torch_mbt/conformance -m "not mbt_slow"
-pytest src/torch_mbt/conformance -m "mbt_backend('cpu')"
-pytest src/torch_mbt/conformance --backend=all -m "mbt_exclude_backend('cpu')"
+pytest src/neutraltest/conformance -m "nt_family('matmul')"
+pytest src/neutraltest/conformance -m "nt_grad"
+pytest src/neutraltest/conformance -m "not nt_slow"
+pytest src/neutraltest/conformance -m "nt_backend('cpu')"
+pytest src/neutraltest/conformance --backend=all -m "nt_exclude_backend('cpu')"
 ```
 
 ## JSON report
 
-`--mbt-report=results.json` writes:
+`--nt-report=results.json` writes:
 
 ```json
 {

@@ -7,7 +7,7 @@ import pathlib
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-CONFORMANCE = ROOT / "src" / "torch_mbt" / "conformance"
+CONFORMANCE = ROOT / "src" / "neutraltest" / "conformance"
 OUT = ROOT / "docs" / "operator-matrix.md"
 
 SHORT = {"float32": "f32", "float64": "f64", "float16": "f16", "bfloat16": "bf16"}
@@ -19,7 +19,7 @@ def main() -> int:
     rows: list[tuple[str, str, str, str, str, str, str]] = []
     params = 0
     for path in sorted(CONFORMANCE.glob("test_*.py")):
-        module = importlib.import_module(f"torch_mbt.conformance.{path.stem}")
+        module = importlib.import_module(f"neutraltest.conformance.{path.stem}")
         # A module may keep version-gated cases in a second list (e.g. RMS_CASES).
         case_lists = [
             v for k, v in vars(module).items() if k.endswith("CASES") and isinstance(v, list)
@@ -62,7 +62,7 @@ def main() -> int:
             ]
             family = fam
         lines.append(
-            f"| `{cid}` | `{op}` | {dtypes} | {kind} | {grad} | `torch_mbt/conformance/{module}` |"
+            f"| `{cid}` | `{op}` | {dtypes} | {kind} | {grad} | `neutraltest/conformance/{module}` |"
         )
 
     gradients = sum(1 for row in rows if row[5])

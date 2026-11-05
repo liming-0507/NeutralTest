@@ -8,16 +8,16 @@ out-of-tree accelerator without a line of vendor-specific code.
 
 Quick start::
 
-    pip install torch-mbt
-    torch-mbt info
-    torch-mbt doctor --backend=cpu
+    pip install neutraltest
+    neutraltest info
+    neutraltest doctor --backend=cpu
     pytest --backend=cpu tests/
 
 Writing a test::
 
-    from torch_mbt import OpCase, check_case
+    from neutraltest import OpCase, check_case
 
-    def test_add(mbt):
+    def test_add(nt):
         case = OpCase(
             id="add/elementwise",
             family="elementwise",
@@ -25,7 +25,7 @@ Writing a test::
             fn=torch.add,
             build=lambda dtype, gen: ((randn((8, 8), dtype, gen), randn((8, 8), dtype, gen)), {}),
         )
-        check_case(case, mbt.backend, torch.float32)
+        check_case(case, nt.backend, torch.float32)
 """
 
 from __future__ import annotations

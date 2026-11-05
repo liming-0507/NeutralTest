@@ -5,11 +5,11 @@ from __future__ import annotations
 import pytest
 import torch
 
-from torch_mbt.backends import CpuBackend
-from torch_mbt.errors import UnsupportedByBackend
-from torch_mbt.policy import patched_policy, reset_policy
-from torch_mbt.seeding import randn
-from torch_mbt.testing import (
+from neutraltest.backends import CpuBackend
+from neutraltest.errors import UnsupportedByBackend
+from neutraltest.policy import patched_policy, reset_policy
+from neutraltest.seeding import randn
+from neutraltest.testing import (
     OpCase,
     build_inputs,
     cast_float,

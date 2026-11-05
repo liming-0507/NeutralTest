@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 import torch
 
-from torch_mbt.tolerance import EXACT, KIND_SCALE, KINDS, Tolerance, describe, tolerance_for
+from neutraltest.tolerance import EXACT, KIND_SCALE, KINDS, Tolerance, describe, tolerance_for
 
 
 def test_elementwise_budget_matches_dtype_table() -> None:

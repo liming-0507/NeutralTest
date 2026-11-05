@@ -1,6 +1,6 @@
 """Backend adapters and discovery.
 
->>> from torch_mbt.backends import discover, resolve_spec
+>>> from neutraltest.backends import discover, resolve_spec
 >>> [b.name for b in resolve_spec("auto")]  # doctest: +SKIP
 ['cpu']
 """

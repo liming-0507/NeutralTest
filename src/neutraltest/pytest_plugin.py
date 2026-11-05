@@ -45,7 +45,7 @@ __all__ = [
     "pytest_generate_tests",
     "pytest_collection_modifyitems",
     "pytest_terminal_summary",
-    "MbtContext",
+    "NeutralTestContext",
 ]
 
 STATE = pytest.StashKey[dict[str, Any]]()
@@ -53,18 +53,18 @@ DEFAULT_SEED = 20240101
 
 #: Declared by the plugin itself, so a suite needs no ``markers =`` ini block.
 MARKERS = (
-    ("mbt_backend(name, ...)", "run this test only on the named backend(s)"),
-    ("mbt_exclude_backend(name, ...)", "never run this test on the named backend(s)"),
-    ("mbt_family(name)", "operator family, used for report grouping"),
-    ("mbt_op(name)", "operator name, used for report grouping"),
-    ("mbt_grad", "the test exercises the backward pass"),
-    ("mbt_slow", "the test is slow; deselect with -m 'not mbt_slow'"),
+    ("nt_backend(name, ...)", "run this test only on the named backend(s)"),
+    ("nt_exclude_backend(name, ...)", "never run this test on the named backend(s)"),
+    ("nt_family(name)", "operator family, used for report grouping"),
+    ("nt_op(name)", "operator name, used for report grouping"),
+    ("nt_grad", "the test exercises the backward pass"),
+    ("nt_slow", "the test is slow; deselect with -m 'not nt_slow'"),
 )
 
 
 @dataclass(frozen=True)
-class MbtContext:
-    """Everything a conformance test needs, bundled by the ``mbt`` fixture."""
+class NeutralTestContext:
+    """Everything a conformance test needs, bundled by the ``nt`` fixture."""
 
     backend: Backend
     device: torch.device
@@ -98,11 +98,11 @@ class MbtContext:
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
-    group = parser.getgroup("torch-mbt", "multi-backend conformance testing")
+    group = parser.getgroup("neutralTest", "multi-backend conformance testing")
     group.addoption(
         "--backend",
         action="store",
-        default=os.environ.get("TORCH_MBT_BACKEND", "auto"),
+        default=os.environ.get("NEUTRALTEST_BACKEND", "auto"),
         metavar="SPEC",
         help=(
             "backend selection: 'auto' (available, default), 'all' (every discovered, "
@@ -114,7 +114,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         "--device-index",
         action="store",
         type=int,
-        default=int(os.environ.get("TORCH_MBT_DEVICE_INDEX", "0")),
+        default=int(os.environ.get("NEUTRALTEST_DEVICE_INDEX", "0")),
         dest="device_index",
         metavar="N",
         help="device ordinal used by the `device` fixture (default: 0)",
@@ -149,26 +149,26 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help="scale every tolerance, for noisy accelerators (default: 1.0)",
     )
     group.addoption(
-        "--mbt-seed",
+        "--nt-seed",
         action="store",
         type=int,
         default=DEFAULT_SEED,
-        dest="mbt_seed",
+        dest="nt_seed",
         metavar="INT",
         help=f"base seed for per-test reseeding (default: {DEFAULT_SEED})",
     )
     group.addoption(
-        "--mbt-report",
+        "--nt-report",
         action="store",
         default=None,
-        dest="mbt_report",
+        dest="nt_report",
         metavar="PATH",
         help="write a JSON report of per-backend results",
     )
     group.addoption(
-        "--mbt-no-summary",
+        "--nt-no-summary",
         action="store_true",
-        dest="mbt_no_summary",
+        dest="nt_no_summary",
         help="suppress the per-backend terminal summary",
     )
 
@@ -194,7 +194,7 @@ def pytest_configure(config: pytest.Config) -> None:
         tolerance_multiplier=config.getoption("tolerance_multiplier"),
         strict_backends=config.getoption("backend_strict"),
         device_index=config.getoption("device_index"),
-        seed=config.getoption("mbt_seed"),
+        seed=config.getoption("nt_seed"),
     )
 
     unavailable = [backend.name for backend in selected if not backend.is_available()]
@@ -211,13 +211,13 @@ def pytest_configure(config: pytest.Config) -> None:
         "selected": selected,
         "unavailable": unavailable,
         "recorder": Recorder(),
-        "seed": config.getoption("mbt_seed"),
-        "summary": not config.getoption("mbt_no_summary"),
+        "seed": config.getoption("nt_seed"),
+        "summary": not config.getoption("nt_no_summary"),
         # snapshotted: a test is allowed to mutate the global policy, the report is not
         "on_unsupported": config.getoption("on_unsupported"),
     }
 
-    seed_all(config.getoption("mbt_seed"))
+    seed_all(config.getoption("nt_seed"))
     _ACTIVE_CONFIG = config
 
 
@@ -264,14 +264,14 @@ def pytest_report_header(config: pytest.Config) -> list[str]:
         for backend in selected
     )
     lines = [
-        f"torch-mbt: backends = {names}",
-        f"torch-mbt: policy = on_unsupported:{policy.on_unsupported}, "
+        f"neutralTest: backends = {names}",
+        f"neutralTest: policy = on_unsupported:{policy.on_unsupported}, "
         f"tolerance_multiplier:{policy.tolerance_multiplier:g}, "
         f"device_index:{policy.device_index}, seed:{policy.seed}",
     ]
     if state["unavailable"]:
         lines.append(
-            "torch-mbt: WARNING unavailable backends will be reported as skipped: "
+            "neutralTest: WARNING unavailable backends will be reported as skipped: "
             + ", ".join(state["unavailable"])
         )
     return lines
@@ -299,12 +299,12 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
         backend = _backend_of(item)
         if backend is None:
             continue
-        only = _marker_names(item, "mbt_backend")
+        only = _marker_names(item, "nt_backend")
         if only and backend.name not in only:
             item.add_marker(
                 pytest.mark.skip(reason=f"backend {backend.name!r} not in {sorted(only)}")
             )
-        excluded = _marker_names(item, "mbt_exclude_backend")
+        excluded = _marker_names(item, "nt_exclude_backend")
         if backend.name in excluded:
             item.add_marker(
                 pytest.mark.skip(reason=f"backend {backend.name!r} is excluded by marker")
@@ -336,12 +336,12 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[Any]) -> 
     backend = _backend_of(item)
     # Custom attributes: pytest reports are open to extension and the hooks that
     # read them below live in this module.
-    report.mbt_backend = backend.name if backend else "-"
-    report.mbt_family = _marker_str(item, "mbt_family")
-    report.mbt_op = _marker_str(item, "mbt_op")
-    report.mbt_dtype = _dtype_of(item)
+    report.nt_backend = backend.name if backend else None
+    report.nt_family = _marker_str(item, "nt_family")
+    report.nt_op = _marker_str(item, "nt_op")
+    report.nt_dtype = _dtype_of(item)
     excinfo = getattr(call, "excinfo", None)
-    report.mbt_unsupported = bool(excinfo is not None and _is_unsupported(excinfo.value))
+    report.nt_unsupported = bool(excinfo is not None and _is_unsupported(excinfo.value))
     return report
 
 
@@ -352,16 +352,20 @@ def pytest_runtest_logreport(report: pytest.TestReport) -> None:
     recorder = _recorder()
     if recorder is None:
         return
+    backend = getattr(report, "nt_backend", None)
+    if backend is None:
+        # Not a backend-parametrised test: the summary counts conformance results only.
+        return
     recorder.add(
         Result(
             nodeid=report.nodeid,
-            backend=getattr(report, "mbt_backend", "-"),
+            backend=backend,
             outcome=outcome,
             duration=float(getattr(report, "duration", 0.0)),
-            family=getattr(report, "mbt_family", ""),
-            op=getattr(report, "mbt_op", ""),
-            dtype=getattr(report, "mbt_dtype", ""),
-            unsupported=bool(getattr(report, "mbt_unsupported", False)),
+            family=getattr(report, "nt_family", ""),
+            op=getattr(report, "nt_op", ""),
+            dtype=getattr(report, "nt_dtype", ""),
+            unsupported=bool(getattr(report, "nt_unsupported", False)),
             message=_first_line(report),
         )
     )
@@ -372,7 +376,7 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     state = config.stash.get(STATE, None)
     if state is None:
         return
-    path = config.getoption("mbt_report", default=None)
+    path = config.getoption("nt_report", default=None)
     if path:
         state["recorder"].write_json(path)
 
@@ -397,7 +401,7 @@ def pytest_terminal_summary(terminalreporter: Any, exitstatus: int, config: pyte
         )
     headers = ("backend", *SUMMARY_OUTCOMES, "unsupported", "time")
 
-    terminalreporter.section("torch-mbt summary")
+    terminalreporter.section("neutralTest summary")
     terminalreporter.write_line(render_table(rows, headers))
 
     unsupported = sum(1 for result in recorder.results if result.unsupported)
@@ -440,9 +444,9 @@ def device(backend: Backend, device_index: int) -> torch.device:
 
 
 @pytest.fixture(scope="session")
-def mbt(backend: Backend, device: torch.device) -> MbtContext:
+def nt(backend: Backend, device: torch.device) -> NeutralTestContext:
     """Backend + device + policy, plus small deterministic-tensor helpers."""
-    return MbtContext(backend=backend, device=device, policy=get_policy())
+    return NeutralTestContext(backend=backend, device=device, policy=get_policy())
 
 
 @pytest.fixture(scope="session")

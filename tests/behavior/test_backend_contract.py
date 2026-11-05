@@ -10,7 +10,7 @@ from __future__ import annotations
 import pytest
 import torch
 
-from torch_mbt import get_policy
+from neutraltest import get_policy
 
 
 def test_backend_is_reported_as_available(backend) -> None:
@@ -48,25 +48,25 @@ def test_reduction_matches_the_host(backend, device) -> None:
     assert float(values.sum().cpu()) == pytest.approx(float(values.cpu().sum()))
 
 
-def test_mbt_context_builds_device_tensors(mbt) -> None:
-    sample = mbt.tensor(4, 4, seed=3)
-    assert sample.device == mbt.device
+def test_mbt_context_builds_device_tensors(nt) -> None:
+    sample = nt.tensor(4, 4, seed=3)
+    assert sample.device == nt.device
     assert sample.dtype == torch.float32
-    assert mbt.reference(sample).dtype == torch.float64
-    assert mbt.reference(sample).device.type == "cpu"
+    assert nt.reference(sample).dtype == torch.float64
+    assert nt.reference(sample).device.type == "cpu"
 
 
-def test_mbt_context_inputs_are_deterministic(mbt) -> None:
-    first = mbt.tensor(16, seed=5)
-    second = mbt.tensor(16, seed=5)
-    third = mbt.tensor(16, seed=6)
+def test_mbt_context_inputs_are_deterministic(nt) -> None:
+    first = nt.tensor(16, seed=5)
+    second = nt.tensor(16, seed=5)
+    third = nt.tensor(16, seed=6)
     assert torch.equal(first, second)
     assert not torch.equal(first, third)
 
 
-def test_mbt_tolerance_follows_the_policy(mbt) -> None:
-    tolerance = mbt.tolerance(torch.float32, "matmul")
-    base = mbt.tolerance(torch.float32, "elementwise")
+def test_mbt_tolerance_follows_the_policy(nt) -> None:
+    tolerance = nt.tolerance(torch.float32, "matmul")
+    base = nt.tolerance(torch.float32, "elementwise")
     assert tolerance.rtol > base.rtol
     assert tolerance.rtol == pytest.approx(base.rtol * 4)
 

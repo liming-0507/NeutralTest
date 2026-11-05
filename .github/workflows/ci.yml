@@ -60,15 +60,15 @@ jobs:
         run: pytest tests -q
       - name: CLI smoke
         run: |
-          torch-mbt info
-          torch-mbt doctor --backend=cpu
+          neutraltest info
+          neutraltest doctor --backend=cpu
       - name: JSON report
-        run: pytest src/torch_mbt/conformance -q --mbt-report=results.json
+        run: pytest src/neutraltest/conformance -q --nt-report=results.json
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: mbt-report-py${{ matrix.python }}
+          name: nt-report-py${{ matrix.python }}
           path: results.json
           if-no-files-found: warn
 
@@ -109,7 +109,7 @@ jobs:
       # bfloat16 mse_loss kernel on CPU, which is a property of that torch build,
       # not a defect in this harness. The newest leg keeps the strict "fail".
       - name: Operator matrix
-        run: pytest src/torch_mbt/conformance -q --on-unsupported=${{ matrix.unsupported }} -rs
+        run: pytest src/neutraltest/conformance -q --on-unsupported=${{ matrix.unsupported }} -rs
 
   skip-behaviour:
     name: unavailable backends skip, not fail
@@ -127,11 +127,11 @@ jobs:
           python -m pip install -e . --no-deps
           python -m pip install "pytest>=7.4"
       - name: --backend=all must skip the absent devices
-        run: pytest src/torch_mbt/conformance -q --backend=all -rs
+        run: pytest src/neutraltest/conformance -q --backend=all -rs
       - name: --backend-strict must reject an unavailable backend instead
         run: |
           set +e
-          pytest src/torch_mbt/conformance -q --backend=cuda --backend-strict
+          pytest src/neutraltest/conformance -q --backend=cuda --backend-strict
           code=$?
           set -e
           if [ "$code" -ne 4 ]; then

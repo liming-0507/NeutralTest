@@ -9,7 +9,7 @@ First release.
 - `Backend` adapter ABC over PyTorch dispatch mechanisms (`cpu`, `cuda`, `xpu`,
   `mps`, `privateuse1`, custom), with availability probing, device selection,
   dtype support probing and optional synchronize / cache / memory / stream hooks.
-- Backend discovery: built-ins, `torch_mbt.backends` entry points, `--backend`
+- Backend discovery: built-ins, `neutraltest.backends` entry points, `--backend`
   specs (`auto`, `all`, comma lists, globs), deduplication per device type.
 - `OpCase` test description plus `check_case` / `check_backward`: CPU-generated
   inputs, device execution, CPU `float64` reference, metadata-then-value checks,
@@ -24,11 +24,11 @@ First release.
 ### pytest plugin
 
 - Options: `--backend`, `--device-index`, `--list-backends`, `--backend-strict`,
-  `--on-unsupported`, `--tolerance-multiplier`, `--mbt-seed`, `--mbt-report`,
-  `--mbt-no-summary`.
-- Fixtures: `backend`, `device`, `device_index`, `mbt`, `cpu_device`.
-- Markers: `mbt_backend`, `mbt_exclude_backend`, `mbt_family`, `mbt_op`,
-  `mbt_grad`, `mbt_slow`.
+  `--on-unsupported`, `--tolerance-multiplier`, `--nt-seed`, `--nt-report`,
+  `--nt-no-summary`.
+- Fixtures: `backend`, `device`, `device_index`, `nt`, `cpu_device`.
+- Markers: `nt_backend`, `nt_exclude_backend`, `nt_family`, `nt_op`,
+  `nt_grad`, `nt_slow`.
 - Per-backend summary table and JSON result report.
 
 ### Suite
@@ -41,7 +41,7 @@ First release.
 
 ### CLI
 
-- `torch-mbt info`, `torch-mbt doctor`, `torch-mbt test`.
+- `neutraltest info`, `neutraltest doctor`, `neutraltest test`.
 
 ### Working next to a large dependency
 

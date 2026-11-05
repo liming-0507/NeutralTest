@@ -1,8 +1,8 @@
-# torch-mbt
+# neutralTest
 
 **面向 PyTorch 算子的中立多后端一致性测试框架（vendor-neutral）。**
 
-`torch-mbt` 是一个 pytest 插件 + 库，只回答一个问题：
+`neutraltest` 是一个 pytest 插件 + 库，只回答一个问题：
 
 > 换一块加速卡、换一个 PyTorch 构建，同样的输入、同样的 dtype、前向**和**反向，
 > 算出来的数是不是和参考实现一致？
@@ -10,8 +10,8 @@
 而它不需要知道这块卡是谁家的。
 
 ```console
-$ torch-mbt info
-torch-mbt 0.1.0
+$ neutraltest info
+neutraltest 0.1.0
 python      3.13.13 (x86_64)
 torch       2.15.0+cpu
 registered  privateuseone
@@ -43,7 +43,7 @@ PyTorch 的 dispatch 层只认**固定的少数几种 device type**：`cpu`、`c
 2. 每家厂商各写一套测试，容差各定各的、"通过"的定义各不一样，
    跨厂商的测试结果无法比较。
 
-`torch-mbt` 反过来做：**测机制，不测品牌**。框架把测试按机器上真实存在的
+`neutraltest` 反过来做：**测机制，不测品牌**。框架把测试按机器上真实存在的
 dispatch 机制（`cpu` / `cuda` / `xpu` / `mps` / `privateuse1`）参数化；
 适配器最终指向哪块卡，用的是同一套算子矩阵、同一套容差、同一个参考实现，
 因此换机器、换厂商，结果可以直接对比。
@@ -56,7 +56,7 @@ dispatch 机制（`cpu` / `cuda` / `xpu` / `mps` / `privateuse1`）参数化；
 ## 安装
 
 ```bash
-pip install torch-mbt
+pip install neutraltest
 ```
 
 从源码安装：
@@ -71,18 +71,18 @@ python -m venv .venv --system-site-packages   # 复用已装好的 CPU torch
 ## 快速开始
 
 ```bash
-torch-mbt info                    # 这台机器上有哪些后端
-torch-mbt doctor                  # 每个可用后端跑 7 项冒烟检查
-torch-mbt test                    # 跑自带的算子一致性套件
-torch-mbt test --backend=cpu -k matmul
+neutraltest info                    # 这台机器上有哪些后端
+neutraltest doctor                  # 每个可用后端跑 7 项冒烟检查
+neutraltest test                    # 跑自带的算子一致性套件
+neutraltest test --backend=cpu -k matmul
 ```
 
 也可以直接驱动 pytest（插件通过 `pytest11` entry point 注册，不需要 conftest）：
 
 ```bash
-pytest --backend=cpu src/torch_mbt/conformance
+pytest --backend=cpu src/neutraltest/conformance
 pytest --backend=all --on-unsupported=skip      # 不可用后端跳过而不是失败
-pytest --backend=cpu,xpu --mbt-report=report.json
+pytest --backend=cpu,xpu --nt-report=report.json
 ```
 
 ### `--backend` 取值
@@ -95,7 +95,7 @@ pytest --backend=cpu,xpu --mbt-report=report.json
 | `cpu,xpu` | 逗号列表，保持顺序 |
 | `*pu` | 对名字/device type/别名做 glob |
 
-未显式传参时回落到环境变量 `TORCH_MBT_BACKEND`，方便 CI 切换后端而不改命令行。
+未显式传参时回落到环境变量 `NEUTRALTEST_BACKEND`，方便 CI 切换后端而不改命令行。
 
 ### 选项
 
@@ -107,18 +107,18 @@ pytest --backend=cpu,xpu --mbt-report=report.json
 | `--backend-strict` | 关 | 请求的后端不可用时按用法错误处理，而不是 skip |
 | `--on-unsupported` | `fail` | 算子未实现时的行为：`fail` / `skip` / `xfail` |
 | `--tolerance-multiplier` | `1.0` | 全局容差缩放 |
-| `--mbt-seed` | `20240101` | 输入生成种子 |
-| `--mbt-report PATH` | — | 输出 JSON 结果报告 |
-| `--mbt-no-summary` | 关 | 不打印终端汇总表 |
+| `--nt-seed` | `20240101` | 输入生成种子 |
+| `--nt-report PATH` | — | 输出 JSON 结果报告 |
+| `--nt-no-summary` | 关 | 不打印终端汇总表 |
 
-不想改测试代码就想缩小范围时用标记：`mbt_backend`、`mbt_exclude_backend`、
-`mbt_family`、`mbt_op`、`mbt_grad`、`mbt_slow`。
+不想改测试代码就想缩小范围时用标记：`nt_backend`、`nt_exclude_backend`、
+`nt_family`、`nt_op`、`nt_grad`、`nt_slow`。
 
 ### 跑完长什么样
 
 ```console
-$ pytest -q --backend=cpu src/torch_mbt/conformance
-=============================== torch-mbt summary ===============================
+$ pytest -q --backend=cpu src/neutraltest/conformance
+=============================== neutraltest summary ===============================
 backend  passed  failed  skipped  xfailed  xpassed  error  unsupported  time
 -------  ------  ------  -------  -------  -------  -----  -----------  -----
 cpu      161     0       0        0        0        0      0            0.34s
@@ -135,7 +135,7 @@ cpu      161     0       0        0        0        0      0            0.34s
 
 ```python
 import torch
-from torch_mbt import OpCase, check_case, randn
+from neutraltest import OpCase, check_case, randn
 
 def _build(dtype, generator):
     x = randn((8, 16), dtype, generator)
@@ -153,8 +153,8 @@ ADD = OpCase(
     grad_inputs=(0, 1),
 )
 
-def test_add(mbt):
-    check_case(ADD, mbt.backend, torch.float32)
+def test_add(nt):
+    check_case(ADD, nt.backend, torch.float32)
 ```
 
 `check_case` 负责全部细节：
@@ -202,7 +202,7 @@ CPU 版 torch 解开就 800 MB，带 CUDA 栈要几个 GB，所以框架的原�
 
 ## 容差
 
-跨实现比浮点，要的是"预算"，不是常数。`torch-mbt` 用 dtype 与数值类别两维决定预算：
+跨实现比浮点，要的是"预算"，不是常数。`neutraltest` 用 dtype 与数值类别两维决定预算：
 
 | kind | 典型算子 | 系数 |
 | --- | --- | --- |
@@ -225,7 +225,7 @@ CPU 版 torch 解开就 800 MB，带 CUDA 栈要几个 GB，所以框架的原�
 适配器就是一个小类，说清"怎么够到设备"：
 
 ```python
-from torch_mbt import Backend, Mechanism
+from neutraltest import Backend, Mechanism
 
 class AcceleratorBackend(Backend):
     name = "accelerator"            # --backend 匹配的名字
@@ -243,7 +243,7 @@ class AcceleratorBackend(Backend):
 打成 entry point 后插件会自动发现：
 
 ```toml
-[project.entry-points."torch_mbt.backends"]
+[project.entry-points."neutraltest.backends"]
 accelerator = "vendorx.torch_test:AcceleratorBackend"
 ```
 
@@ -254,16 +254,16 @@ accelerator = "vendorx.torch_test:AcceleratorBackend"
 
 | 命令 | 用途 |
 | --- | --- |
-| `torch-mbt info` | 版本、torch 构建、已注册的 `privateuse1` 名、后端表、dtype 支持矩阵、容差预算 |
-| `torch-mbt doctor` | 每个可用后端跑 7 项冒烟检查（分配、逐元素、矩阵乘、规约、softmax、反向、host↔device 往返），有失败即非零退出 |
-| `torch-mbt test [pytest 参数]` | 带着后端选项调 pytest，默认跑自带一致性套件 |
+| `neutraltest info` | 版本、torch 构建、已注册的 `privateuse1` 名、后端表、dtype 支持矩阵、容差预算 |
+| `neutraltest doctor` | 每个可用后端跑 7 项冒烟检查（分配、逐元素、矩阵乘、规约、softmax、反向、host↔device 往返），有失败即非零退出 |
+| `neutraltest test [pytest 参数]` | 带着后端选项调 pytest，默认跑自带一致性套件 |
 
 `doctor` 是区分"卡不在"和"卡在但算错了"最快的办法。
 
 ## 仓库结构
 
 ```
-src/torch_mbt/
+src/neutraltest/
   backends/      Backend 抽象、内置适配器、发现与 --backend 解析
   testing.py     OpCase、输入构造、check_case / check_backward
   compare.py     张量比较（精确/容差）、梯度比较
