@@ -213,6 +213,8 @@ def pytest_configure(config: pytest.Config) -> None:
         "recorder": Recorder(),
         "seed": config.getoption("mbt_seed"),
         "summary": not config.getoption("mbt_no_summary"),
+        # snapshotted: a test is allowed to mutate the global policy, the report is not
+        "on_unsupported": config.getoption("on_unsupported"),
     }
 
     seed_all(config.getoption("mbt_seed"))
@@ -400,10 +402,10 @@ def pytest_terminal_summary(terminalreporter: Any, exitstatus: int, config: pyte
 
     unsupported = sum(1 for result in recorder.results if result.unsupported)
     if unsupported:
-        policy = get_policy().on_unsupported
+        policy = state.get("on_unsupported") or get_policy().on_unsupported
+        hint = "" if policy != "fail" else "; use --on-unsupported=skip to treat them as skips"
         terminalreporter.write_line(
-            f"{unsupported} result(s) raised UnsupportedByBackend "
-            f"(policy: {policy}); use --on-unsupported=skip to treat them as skips"
+            f"{unsupported} result(s) raised UnsupportedByBackend (policy: {policy}){hint}"
         )
     failures = [result for result in recorder.results if result.outcome == "failed"]
     if failures:

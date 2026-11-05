@@ -25,6 +25,14 @@ def _rms_norm(dtype: torch.dtype, generator: torch.Generator):
     return (randn((4, 16), dtype, generator), (16,), randn((16,), dtype, generator)), {}
 
 
+def _rms_norm_op(*args, **kwargs):
+    # F.rms_norm landed in torch 2.4; the test below skips on anything older.
+    return F.rms_norm(*args, **kwargs)
+
+
+HAS_RMS_NORM = hasattr(F, "rms_norm")
+
+
 def _group_norm(dtype: torch.dtype, generator: torch.Generator):
     x = randn((2, 4, 8, 8), dtype, generator)
     return (x, 2), {}
@@ -62,15 +70,6 @@ CASES = [
         kind="normalization",
         grad=True,
         grad_inputs=(0, 2, 3),
-    ),
-    OpCase(
-        id="rms-norm",
-        family="normalization",
-        op="rms_norm",
-        fn=F.rms_norm,
-        build=_rms_norm,
-        dtypes=F32,
-        kind="normalization",
     ),
     OpCase(
         id="group-norm",
@@ -122,6 +121,26 @@ CASES = [
 ]
 
 
+# Kept apart from CASES so the operator matrix stays collectable on old torch.
+RMS_CASES = [
+    OpCase(
+        id="rms-norm",
+        family="normalization",
+        op="rms_norm",
+        fn=_rms_norm_op,
+        build=_rms_norm,
+        dtypes=F32,
+        kind="normalization",
+    ),
+]
+
+
 @pytest.mark.parametrize("case,dtype", params(CASES))
 def test_normalization(case, dtype, backend):
+    run_case(case, dtype, backend)
+
+
+@pytest.mark.skipif(not HAS_RMS_NORM, reason="F.rms_norm requires torch>=2.4")
+@pytest.mark.parametrize("case,dtype", params(RMS_CASES))
+def test_rms_norm(case, dtype, backend):
     run_case(case, dtype, backend)

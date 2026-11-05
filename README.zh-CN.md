@@ -178,6 +178,21 @@ def test_add(mbt):
 
 完整表格见 [docs/operator-matrix.md](docs/operator-matrix.md)。
 
+## 和庞大的 PyTorch 共处
+
+CPU 版 torch 解开就 800 MB，带 CUDA 栈要几个 GB，所以框架的原则是"复用它，而不是自带一份"：
+
+- 只声明依赖、绝不把 torch 拷进仓库 —— 仓库不到 1 MB，也没有 golden 文件：
+  输入按种子现场生成，参考值现场用 CPU float64 算；
+- 环境很便宜（`--system-site-packages` 下整个 venv 13 MB），第二份 torch 很贵 ——
+  `pip install -e . --no-deps`，别让 pip 再解析一遍 torch；
+- CI 统一走 `https://download.pytorch.org/whl/cpu`（约 800 MB，而不是 3–5 GB，
+  不带 `nvidia-*`/`triton`/`cudnn`）；
+- 兼容性用稀疏矩阵采样 —— 旧 torch 只配一个 Python，其余用最新版，
+  由 `tools/torch_matrix.sh` 驱动。
+
+数字与细节见 [docs/space.md](docs/space.md)。
+
 ## 容差
 
 跨实现比浮点，要的是"预算"，不是常数。`torch-mbt` 用 dtype 与数值类别两维决定预算：
@@ -255,6 +270,7 @@ tests/
   unit/          框架自己的测试（不需要加速卡）
   behavior/      用真实 pytest 子进程驱动插件
   conformance/   算子矩阵（随包发布）—— 拿去打设备的就是这部分
+tools/         算子矩阵生成器、torch 版本矩阵运行器
 docs/
 ```
 

@@ -28,3 +28,7 @@ report.json
 .vscode/
 *.swp
 .DS_Store
+
+# helper environments (tools/torch_matrix.sh, manual matrix runs)
+.venv-*/
+.venv-matrix/

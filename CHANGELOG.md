@@ -43,6 +43,25 @@ First release.
 
 - `torch-mbt info`, `torch-mbt doctor`, `torch-mbt test`.
 
+### Working next to a large dependency
+
+- [docs/space.md](docs/space.md): how to keep the footprint small — CPU wheel
+  index, shared interpreter, `--no-deps`, sparse version matrix, cache hygiene —
+  with measured sizes.
+- `tools/torch_matrix.sh`: run the suite against several torch versions through
+  `uv`, reusing one content-addressed cache instead of one full copy per row.
+- CI gained a sparse torch-compatibility job (oldest supported torch on the
+  oldest Python, newest torch on the newest Python) instead of a full matrix.
+- Verified on both ends of the range: torch 2.15 / Python 3.13 → 287 passed;
+  torch 2.1.2 / Python 3.10 → 285 passed, 2 skipped (`F.rms_norm` needs
+  torch >= 2.4; that torch build has no `bfloat16` `mse_loss` kernel on CPU,
+  which the harness reports as *unsupported*, not as a numerical failure).
+- Pinned the CPU wheel index per package: passing `--extra-index-url pypi.org`
+  while installing torch lets the resolver pick the manylinux CUDA build of the
+  same version (+2 GB of `libtorch_cuda.so` and `nvidia-*` wheels).
+- The terminal summary now reports the policy that was actually in force and
+  stops suggesting `--on-unsupported=skip` when it is already active.
+
 ### Known limitations
 
 - Only the `cpu` backend is exercised on the development machine; `cuda`,

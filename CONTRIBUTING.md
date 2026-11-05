@@ -23,6 +23,13 @@ python -m venv .venv --system-site-packages   # reuse an installed CPU torch
 .venv/bin/pip install pytest ruff mypy
 ```
 
+## Disk
+
+Torch is large; read [docs/space.md](docs/space.md) before adding a dependency,
+a fixture file or a CI job that installs another torch. The short version:
+`--no-deps`, the CPU wheel index, one installation per interpreter, sparse
+version matrix.
+
 ## The checks CI runs
 
 ```bash

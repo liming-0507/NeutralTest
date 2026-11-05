@@ -189,6 +189,23 @@ attention.
 
 See [docs/operator-matrix.md](docs/operator-matrix.md) for the full table.
 
+## Growing next to PyTorch
+
+Torch is 800 MB unpacked for a CPU build and several GB with the CUDA stack, so
+the harness is built to reuse one installation instead of carrying its own:
+
+- the package depends on `torch` and never vendors it — the repository is under
+  1 MB with no golden files, because inputs are generated from a seed and the
+  reference is computed at run time;
+- environments are cheap (13 MB with `--system-site-packages`), a second torch is
+  not — `pip install -e . --no-deps` and let the existing torch be used;
+- CI installs from `https://download.pytorch.org/whl/cpu` (~800 MB instead of
+  3–5 GB, no `nvidia-*`/`triton`/`cudnn`);
+- compatibility is sampled sparsely — old torch on one Python, the rest on the
+  latest — with `tools/torch_matrix.sh`.
+
+Details and the numbers: [docs/space.md](docs/space.md).
+
 ## Tolerances
 
 Comparing floating point across implementations needs a budget, not a constant.
@@ -268,6 +285,7 @@ tests/
   unit/          the framework's own tests (no accelerator needed)
   behavior/      the plugin driven through real pytest subprocesses
   conformance/   the operator matrix — this is the part you point at a device
+tools/         matrix generator, torch-version matrix runner
 docs/
 ```
 

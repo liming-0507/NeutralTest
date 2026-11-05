@@ -20,7 +20,11 @@ def main() -> int:
     params = 0
     for path in sorted(CONFORMANCE.glob("test_*.py")):
         module = importlib.import_module(f"torch_mbt.conformance.{path.stem}")
-        for case in module.CASES:
+        # A module may keep version-gated cases in a second list (e.g. RMS_CASES).
+        case_lists = [
+            v for k, v in vars(module).items() if k.endswith("CASES") and isinstance(v, list)
+        ]
+        for case in [c for cases in case_lists for c in cases]:
             params += len(case.dtypes)
             dtypes = "/".join(SHORT.get(str(d).removeprefix("torch."), str(d)) for d in case.dtypes)
             rows.append(

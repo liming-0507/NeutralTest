@@ -72,6 +72,45 @@ jobs:
           path: results.json
           if-no-files-found: warn
 
+  torch-compat:
+    name: torch compat (py${{ matrix.python }} x torch ${{ matrix.torch }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Sparse on purpose: the oldest torch we claim to support, and the
+          # newest Python we claim to support. A full square would install
+          # 20 copies of torch for very little extra signal (see docs/space.md).
+          - python: "3.10"
+            torch: "2.1.2"
+            unsupported: skip   # old torch: a missing kernel is not our regression
+          - python: "3.13"
+            torch: ""          # newest available for this interpreter
+            unsupported: fail
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . --no-deps
+          python -m pip install "torch${{ matrix.torch && format('=={0}', matrix.torch) || '' }}" \
+            "pytest>=7.4" --index-url https://download.pytorch.org/whl/cpu \
+            --extra-index-url https://pypi.org/simple
+      - name: Report the versions under test
+        run: python -c "import sys, torch; print(sys.version); print(torch.__version__)"
+      - name: Framework tests
+        run: pytest tests -q
+      # --on-unsupported=skip on the old-torch leg: e.g. torch 2.1 has no
+      # bfloat16 mse_loss kernel on CPU, which is a property of that torch build,
+      # not a defect in this harness. The newest leg keeps the strict "fail".
+      - name: Operator matrix
+        run: pytest src/torch_mbt/conformance -q --on-unsupported=${{ matrix.unsupported }} -rs
+
   skip-behaviour:
     name: unavailable backends skip, not fail
     runs-on: ubuntu-latest
