@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+### Added — known issues
+
+- A registered deviation is its own outcome: `known`, `K` in the GB/Z matrix, a
+  `known` column in the pytest summary, and a `KNOWN[<id>]` reason line carrying the
+  measured deviation. It is never counted as passed and never as failed.
+- `src/neutraltest/known_issues/privateuse1_fp32_convolution.json` registers the
+  five float32 convolutions one `privateuse1` accelerator computes with a ten-bit
+  mantissa (conv2d pad1/groups-2/stride-2, conv_transpose2d, conv1d), with both
+  measurements and four arguments why the harness is not the suspect. The
+  measured environment lives in the git-ignored `known_issues.local/` and is
+  folded in by id at load time.
+- `neutraltest known` lists the registry, `--id` shows one entry, `--verify`
+  re-runs every entry against its backend and reports `KNOWN` / `FIXED`
+  (`--fail-on-fixed` exits 1 so CI notices a retired registration).
+- `--known {report,strict}` and `--known-registry PATH` (pytest), plus the
+  `NEUTRALTEST_KNOWN` and `NEUTRALTEST_KNOWN_MODE` environment variables.
+- `docs/known-issues.md`: the four criteria for registering instead of fixing,
+  the current table, what the report looks like, and the entry schema.
+
 ### Fixed (found by running on a second machine)
 
 - `quantise()` clamps to the format's finite range before casting: `tensor.to(float8_e4m3fn)`

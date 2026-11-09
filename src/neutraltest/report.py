@@ -11,7 +11,7 @@ from typing import Any
 
 __all__ = ["Result", "Recorder", "SUMMARY_OUTCOMES"]
 
-SUMMARY_OUTCOMES = ("passed", "failed", "skipped", "xfailed", "xpassed", "error")
+SUMMARY_OUTCOMES = ("passed", "failed", "skipped", "known", "xfailed", "xpassed", "error")
 
 
 @dataclass

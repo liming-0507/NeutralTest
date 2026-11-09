@@ -19,11 +19,14 @@ __all__ = [
     "reset_policy",
     "patched_policy",
     "OnUnsupported",
+    "KnownMode",
 ]
 
 OnUnsupported = Literal["fail", "skip", "xfail"]
+KnownMode = Literal["report", "strict"]
 
 _VALID_ON_UNSUPPORTED = ("fail", "skip", "xfail")
+_VALID_KNOWN = ("report", "strict")
 
 
 @dataclass
@@ -40,6 +43,9 @@ class RunPolicy:
     device_index: int = 0
     #: Base seed for reproducible input generation.
     seed: int = 20240101
+    #: How to treat a cell registered in ``known_issues``: ``report`` marks it
+    #: KNOWN (the deviation is expected), ``strict`` fails it anyway.
+    known: KnownMode = "report"
 
     def __post_init__(self) -> None:
         if self.on_unsupported not in _VALID_ON_UNSUPPORTED:
@@ -51,6 +57,8 @@ class RunPolicy:
             raise ValueError(f"tolerance_multiplier must be > 0, got {self.tolerance_multiplier}")
         if self.device_index < 0:
             raise ValueError(f"device_index must be >= 0, got {self.device_index}")
+        if self.known not in _VALID_KNOWN:
+            raise ValueError(f"known must be one of {_VALID_KNOWN}, got {self.known!r}")
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -59,6 +67,7 @@ class RunPolicy:
             "strict_backends": self.strict_backends,
             "device_index": self.device_index,
             "seed": self.seed,
+            "known": self.known,
         }
 
 

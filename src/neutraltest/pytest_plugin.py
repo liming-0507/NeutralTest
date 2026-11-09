@@ -22,6 +22,7 @@ Design notes that matter in practice:
 from __future__ import annotations
 
 import os
+import re
 import sys
 from dataclasses import dataclass
 from typing import Any
@@ -177,6 +178,25 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         ),
     )
     group.addoption(
+        "--known",
+        action="store",
+        choices=("report", "strict"),
+        default=os.environ.get("NEUTRALTEST_KNOWN_MODE", "report"),
+        dest="known",
+        help=(
+            "how to treat cells registered in known_issues/: 'report' marks them KNOWN "
+            "(default), 'strict' fails them so the raw assertion can be inspected"
+        ),
+    )
+    group.addoption(
+        "--known-registry",
+        action="append",
+        default=None,
+        dest="known_registry",
+        metavar="PATH",
+        help="extra known-issue registry file or directory (repeatable)",
+    )
+    group.addoption(
         "--nt-no-summary",
         action="store_true",
         dest="nt_no_summary",
@@ -210,7 +230,13 @@ def pytest_configure(config: pytest.Config) -> None:
         strict_backends=config.getoption("backend_strict"),
         device_index=config.getoption("device_index"),
         seed=config.getoption("nt_seed"),
+        known=config.getoption("known"),
     )
+
+    from . import known as known_module
+
+    registry_paths = config.getoption("known_registry")
+    known_module.use(known_module.load(registry_paths) if registry_paths else None)
 
     unavailable = [backend.name for backend in selected if not backend.is_available()]
     strict = config.getoption("backend_strict")
@@ -369,6 +395,12 @@ def pytest_runtest_logreport(report: pytest.TestReport) -> None:
     recorder = _recorder()
     if recorder is None:
         return
+    known_id = _known_id(report)
+    if known_id is not None:
+        config = _ACTIVE_CONFIG
+        if config is not None:
+            hits = config.stash[STATE].setdefault("known_hits", [])
+            hits.append((known_id, report.nodeid))
     backend = getattr(report, "nt_backend", None)
     if backend is None:
         # Not a backend-parametrised test: the summary counts conformance results only.
@@ -428,6 +460,20 @@ def pytest_terminal_summary(terminalreporter: Any, exitstatus: int, config: pyte
         terminalreporter.write_line(
             f"{unsupported} result(s) raised UnsupportedByBackend (policy: {policy}){hint}"
         )
+    hits = state.get("known_hits") or []
+    if hits:
+        tally: dict[str, int] = {}
+        for known_id, _ in hits:
+            tally[known_id] = tally.get(known_id, 0) + 1
+        terminalreporter.write_line(
+            f"known issues: {len(tally)} registered cell(s) reproduced "
+            f"({sum(tally.values())} test(s)) -- see known_issues/; "
+            "re-check with `neutraltest known --verify`"
+        )
+        for known_id, count in sorted(tally.items()):
+            suffix = f" x{count}" if count > 1 else ""
+            terminalreporter.write_line(f"  KNOWN  {known_id}{suffix}")
+
     failures = [result for result in recorder.results if result.outcome == "failed"]
     if failures:
         families = sorted({result.family or "<ungrouped>" for result in failures})
@@ -560,6 +606,8 @@ def _is_unsupported(exc: BaseException) -> bool:
 def _outcome_of(report: pytest.TestReport) -> str | None:
     if report.when == "call":
         if hasattr(report, "wasxfail"):
+            if _known_id(report) is not None:
+                return "passed" if report.outcome == "passed" else "known"
             return "xpassed" if report.outcome == "passed" else "xfailed"
         return report.outcome
     if report.when == "setup" and report.outcome == "skipped":
@@ -567,6 +615,15 @@ def _outcome_of(report: pytest.TestReport) -> str | None:
     if report.when in ("setup", "teardown") and report.outcome == "failed":
         return "error"
     return None
+
+
+_KNOWN_RE = re.compile(r"KNOWN\[([^\]]+)\]")
+
+
+def _known_id(report: pytest.TestReport) -> str | None:
+    """The registry id an xfail came from, if it came from known_issues."""
+    match = _KNOWN_RE.match(str(getattr(report, "wasxfail", "")))
+    return match.group(1) if match else None
 
 
 def _first_line(report: pytest.TestReport) -> str:

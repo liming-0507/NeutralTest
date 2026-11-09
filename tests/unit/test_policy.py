@@ -87,4 +87,5 @@ def test_as_dict_covers_every_field() -> None:
         "strict_backends",
         "device_index",
         "seed",
+        "known",
     }

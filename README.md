@@ -118,6 +118,8 @@ absent, so CI can select a backend without editing the command line.
 | `--nt-seed` | `20240101` | seed for generated inputs |
 | `--nt-report PATH` | — | write a JSON result report |
 | `--nt-no-summary` | off | suppress the terminal summary table |
+| `--known` | `report` | registered deviations are `report`ed as their own outcome, or `strict`ly failed |
+| `--known-registry PATH` | — | extra known-issue registry (repeatable; `NEUTRALTEST_KNOWN` also works) |
 
 Markers, so a run can be narrowed without touching test code: `nt_backend`,
 `nt_exclude_backend`, `nt_family`, `nt_op`, `nt_grad`, `nt_slow`.
@@ -225,6 +227,24 @@ and row F6 fails the build when a cell is not applicable without one. See
 [docs/gbz73.md](docs/gbz73.md) for the catalogue, the tolerance derivation and
 how to add a row.
 
+## Known issues
+
+A deviation that is real operator behaviour on a backend — rather than a defect
+here — is registered, not skipped and not absorbed by a wider tolerance. The cell
+keeps running and gets its own outcome, `known` (`K` in the matrix), with a reason
+line naming the entry; `--known=strict` turns every registered cell back into a
+failure for release runs.
+
+Five float32 convolutions on one `privateuse1` accelerator are registered today:
+a ten-bit mantissa on a path that does not follow `--fp32-precision`, 1855–5649x
+further from the float64 reference than the CPU is on the same case. Each entry
+records the operator, shape, dtype, both measurements and four arguments for why
+the harness is not the suspect; the exact environment (torch, backend package,
+card, container) sits in the git-ignored `known_issues.local/` beside the suite,
+joined by id, so the shipped file stays free of it. `neutraltest known --verify`
+re-runs every entry and reports `KNOWN` or `FIXED`.
+See [docs/known-issues.md](docs/known-issues.md) for the criteria and the schema.
+
 ## Growing next to PyTorch
 
 Torch is 800 MB unpacked for a CPU build and several GB with the CUDA stack, so
@@ -309,6 +329,7 @@ itself: [docs/backends.md](docs/backends.md).
 | `neutraltest info` | version, torch build, registered `privateuse1` name, backend table, dtype support matrix, tolerance budgets |
 | `neutraltest doctor` | 7 smoke checks per available backend (allocate, elementwise, matmul, reduction, softmax, backward, host↔device transfer); exits non-zero if any check fails |
 | `neutraltest test [pytest args]` | runs the bundled suite (shipped inside the package); unknown arguments are forwarded to pytest |
+| `neutraltest known [--verify]` | list registered deviations, or re-run them to see whether they still reproduce |
 
 `doctor` is the fastest way to tell "the device is not there" from "the device
 is there and computes the wrong thing".
@@ -323,14 +344,17 @@ src/neutraltest/
   tolerance.py   dtype × numerical-class tolerance table
   seeding.py     deterministic input generation
   policy.py      run policy (unsupported handling, tolerance scale, seed, device)
+  precision.py   pins the float32 arithmetic contract
+  known.py       registered deviations: schema, matching, loading
+  known_issues/  the registries that ship with the package
+  conformance/   the operator matrix — this is the part you point at a device
+  gbz73/         the FP8 clause 7.3 matrix: one script per clause row
   pytest_plugin.py  CLI options, fixtures, markers, summary, JSON report
   report.py      result recording and the summary table
-  cli.py         info / doctor / test
+  cli.py         info / doctor / test / known
 tests/
   unit/          the framework's own tests (no accelerator needed)
   behavior/      the plugin driven through real pytest subprocesses
-  conformance/   the operator matrix — this is the part you point at a device
-  gbz73/         the FP8 clause 7.3 matrix: one script per clause row
 tools/         matrix generator, torch-version matrix runner
 docs/
 ```

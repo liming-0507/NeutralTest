@@ -53,7 +53,7 @@ nt = "neutraltest.pytest_plugin"
 where = ["src"]
 
 [tool.setuptools.package-data]
-neutraltest = ["py.typed"]
+neutraltest = ["py.typed", "known_issues/*.json"]
 
 [tool.pytest.ini_options]
 minversion = "7.4"

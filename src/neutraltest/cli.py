@@ -64,6 +64,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _info(args)
     if command == "doctor":
         return _doctor(args)
+    if command == "known":
+        from .known_cli import run_known
+
+        return run_known(args)
     return _test(args)
 
 
@@ -92,6 +96,37 @@ def _build_parser() -> argparse.ArgumentParser:
         "pytest_args",
         nargs=argparse.REMAINDER,
         help="arguments forwarded to pytest",
+    )
+
+    known = subparsers.add_parser(
+        "known",
+        help="list the registered backend deviations and re-check them",
+        description="Known issues are measured, explained deviations that are reported as "
+        "KNOWN instead of failed. Without --verify this lists them; with --verify it re-runs "
+        "exactly those cells and says whether each deviation still reproduces.",
+    )
+    _add_backend_arguments(known)
+    known.add_argument(
+        "--verify",
+        action="store_true",
+        help="re-run every registered cell and report what still reproduces",
+    )
+    known.add_argument(
+        "--id", default=None, metavar="ID", help="print the full evidence for one entry"
+    )
+    known.add_argument(
+        "--registry",
+        action="append",
+        default=None,
+        metavar="PATH",
+        help="extra registry file or directory (repeatable)",
+    )
+    known.add_argument("--json", action="store_true", help="machine readable output")
+    known.add_argument(
+        "--fail-on-fixed",
+        action="store_true",
+        dest="fail_on_fixed",
+        help="exit 1 when a registered deviation no longer reproduces",
     )
 
     matrix = subparsers.add_parser(

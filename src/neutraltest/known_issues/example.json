@@ -1,0 +1,43 @@
+{
+  "schema": 1,
+  "description": "Example registry. Every deviation the suite ships with is measured on hardware that is not part of an open-source checkout, so the shipped set is empty and this file documents the format instead. Real registries go beside the suite (known_issues.local/) or through --known-registry / NEUTRALTEST_KNOWN.",
+  "entries": [
+    {
+      "id": "example-float32-matmul-narrow-mantissa",
+      "summary": "float32 matmul on this backend keeps about a 10-bit mantissa",
+      "backend": {
+        "device_type": "cuda",
+        "name": "*"
+      },
+      "case": "matmul/2d",
+      "operation": "torch.matmul",
+      "dtype": "float32",
+      "shape": {
+        "a": [
+          8,
+          16
+        ],
+        "b": [
+          16,
+          4
+        ]
+      },
+      "call": {},
+      "measured": {
+        "worst_abs": 0.0089,
+        "cpu_worst_abs": 1.5e-06,
+        "ratio_backend_over_cpu": 5933,
+        "effective_mantissa_bits": 10
+      },
+      "environment": {
+        "note": "measured environment recorded where the measurement was made"
+      },
+      "verdict": "example only -- the numbers above are illustrative",
+      "why_not_harness": [
+        "the same case on CPU lands within 1.5e-06 of the float64 reference",
+        "the deviation does not change with --fp32-precision"
+      ],
+      "recorded": "2026-01-01"
+    }
+  ]
+}

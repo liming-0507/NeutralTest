@@ -29,6 +29,10 @@ report.json
 *.swp
 .DS_Store
 
+# measured environments and evidence for the packaged known issues
+known_issues.local
+known_issues.local/
+
 # helper environments (tools/torch_matrix.sh, manual matrix runs)
 .venv-*/
 .venv-matrix/

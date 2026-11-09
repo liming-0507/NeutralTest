@@ -14,8 +14,8 @@ from ..backends.base import Backend
 from .features import COLUMNS, FEATURES, Feature
 from .ops import OPS, Op
 
-SYMBOLS = {"passed": "P", "failed": "F", "na": "-", "not_run": "\u00b7"}
-VERDICTS = ("passed", "failed", "na")
+SYMBOLS = {"passed": "P", "failed": "F", "na": "-", "known": "K", "not_run": "\u00b7"}
+VERDICTS = ("passed", "failed", "na", "known")
 
 
 @dataclass(slots=True)
@@ -103,6 +103,15 @@ def run_feature(feature: Feature, op: Op, backend: Backend, *, seed: int = 0) ->
 
         if isinstance(exc, NotApplicable):
             return Result(feature.id, op.name, "na", exc.reason, time.perf_counter() - started)
+        entry = _known_entry(feature, op, backend)
+        if entry is not None:
+            return Result(
+                feature.id,
+                op.name,
+                "known",
+                f"KNOWN[{entry.id}] {entry.summary}; measured {entry.deviation()}",
+                time.perf_counter() - started,
+            )
         return Result(
             feature.id,
             op.name,
@@ -110,6 +119,16 @@ def run_feature(feature: Feature, op: Op, backend: Backend, *, seed: int = 0) ->
             f"{type(exc).__name__}: {exc}",
             time.perf_counter() - started,
         )
+
+
+def _known_entry(feature: Feature, op: Op, backend: Backend):
+    """The registered deviation covering this cell, if the policy wants one."""
+    from .. import known
+    from ..policy import get_policy
+
+    if get_policy().known == "strict":
+        return None
+    return known.registry().find(f"gbz73/{feature.id}/{op.name}", "float32", backend)
 
 
 def run_all(
@@ -173,7 +192,11 @@ def render_summary(report: Report) -> str:
         if cells:
             passed = sum(1 for r in cells if r.outcome == "passed")
             na = sum(1 for r in cells if r.outcome == "na")
-            lines.append(f"  {op:<14} passed {passed:>2}/{len(cells):<3} na {na:>2}")
+            known_cells = sum(1 for r in cells if r.outcome == "known")
+            line = f"  {op:<14} passed {passed:>2}/{len(cells):<3} na {na:>2}"
+            if known_cells:
+                line += f" known {known_cells:>2}"
+            lines.append(line)
     for result in report.failed[:10]:
         lines.append(f"  FAIL {result.feature}/{result.op}: {_clip(result.detail, 120)}")
     return "\n".join(lines)

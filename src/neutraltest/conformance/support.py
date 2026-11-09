@@ -14,6 +14,9 @@ from typing import Any
 import pytest
 import torch
 
+from neutraltest import known
+from neutraltest.errors import UnsupportedByBackend
+from neutraltest.policy import get_policy
 from neutraltest.seeding import randn
 from neutraltest.testing import OpCase, check_backward, check_case, unsupported_policy
 
@@ -46,11 +49,28 @@ def params(cases: Sequence[OpCase]) -> list[Any]:
 
 
 def run(case: OpCase, backend: Any, dtype: torch.dtype) -> None:
-    """Check one case in one dtype, honouring ``--on-unsupported``."""
-    with unsupported_policy(f"{case.id} [{short_dtype(dtype)}]"):
-        check_case(case, backend, dtype)
-        if case.grad:
-            check_backward(case, backend, dtype)
+    """Check one case in one dtype, honouring ``--on-unsupported`` and ``--known``.
+
+    A failure that matches a registry entry is reported as KNOWN (an xfail whose
+    reason names the entry) instead of a plain failure -- the cell still runs, so
+    a backend that fixes the deviation shows up as an unexpected pass.
+    """
+    label = f"{case.id} [{short_dtype(dtype)}]"
+    with unsupported_policy(label):
+        try:
+            check_case(case, backend, dtype)
+            if case.grad:
+                check_backward(case, backend, dtype)
+        except UnsupportedByBackend:
+            raise
+        except Exception:
+            entry = known.registry().find(case.id, short_dtype(dtype), backend)
+            if entry is None or get_policy().known == "strict":
+                raise
+            pytest.xfail(
+                f"KNOWN[{entry.id}] {entry.summary}; measured {entry.deviation()}"
+                f" -- re-check with `neutraltest known --verify`"
+            )
 
 
 def run_case(case: OpCase, dtype: torch.dtype, backend: Any) -> None:
