@@ -283,16 +283,24 @@ def test_listing_and_json_output(tmp_path: Path, capsys: pytest.CaptureFixture[s
     assert run_known(_args(verify=False, registry=[str(path)], id="missing")) == 2
 
 
-def test_packaged_registry_matches_a_privateuse1_backend() -> None:
-    """The shipped entries must key off the device type, not the package name."""
+def test_packaged_registry_matches_a_privateuse1_backend(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The entries key off the device type, not the package name.
+
+    Runs against the shipped registry only: a companion record or a
+    NEUTRALTEST_KNOWN registry belongs to the checkout, and CI has neither.
+    """
+    monkeypatch.setattr(known, "LOCAL_DIR", pathlib.Path("/nonexistent/known_issues.local"))
+    monkeypatch.delenv("NEUTRALTEST_KNOWN", raising=False)
+    registry = known.load()
     privateuse1 = [backend for backend in discover() if backend.name == "privateuse1"]
     if not privateuse1:
         pytest.skip("no privateuse1 adapter on this build")
     backend = privateuse1[0]
-    registry = known.registry()
-    # the shipped set is a format example on another device type, so nothing may match here
     matched = [entry for entry in registry if entry.matches(entry.case_id, entry.dtype, backend)]
-    assert matched == []
+    if backend.device_type == registry.entries[0].device_type:
+        assert matched, "an entry for this device type must match the backend"
+    else:
+        assert matched == [], "an entry keyed to another device type must not match"
 
 
 def test_the_matrix_runner_reports_a_known_cell(

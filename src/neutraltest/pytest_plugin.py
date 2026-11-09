@@ -473,6 +473,7 @@ def pytest_terminal_summary(terminalreporter: Any, exitstatus: int, config: pyte
         for known_id, count in sorted(tally.items()):
             suffix = f" x{count}" if count > 1 else ""
             terminalreporter.write_line(f"  KNOWN  {known_id}{suffix}")
+        print(" ".join(known_id for known_id, _ in hits))
 
     failures = [result for result in recorder.results if result.outcome == "failed"]
     if failures:
