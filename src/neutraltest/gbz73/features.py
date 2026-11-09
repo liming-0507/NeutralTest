@@ -108,6 +108,7 @@ FEATURES: tuple[Feature, ...] = (
     _f("F4", "host 侧开销（launch/metadata）", "c", "F", "10000"),
     _f("F5", "测量协议（warmup/迭代/计时）", "m", "F", "11111"),
     _f("F6", "N/A 项与披露", "m", "F", "00000"),
+    _f("F7", "相对 CPU 的加速比（同形同协议）", "m", "F", "00000"),
 )
 
 BY_ID: dict[str, Feature] = {f.id: f for f in FEATURES}

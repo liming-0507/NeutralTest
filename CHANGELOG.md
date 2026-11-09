@@ -47,6 +47,14 @@
   and takes 25 samples instead of 3 and 7. A verdict about the clock is not a verdict
   about the operator.
 
+### Added — F7, the accelerator against the CPU
+
+- F7 runs the same operator, on the same inputs, through the same measurement
+  protocol on the backend under test and on the CPU, and reports the ratio. Every
+  other performance row measures one implementation against itself, so a backend that
+  never beats the CPU passed all of them; a ratio above `SAME_ORDER` x `NOISE_SLACK`
+  (2.25x) now fails. It is `na` on the CPU itself, which is the reference.
+
 ### Added
 
 - `--fp32-precision {highest,high,medium}` on `neutraltest gbz73` and on pytest, plus a

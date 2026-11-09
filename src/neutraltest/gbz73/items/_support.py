@@ -119,10 +119,18 @@ def require_resolvable(seconds: float, what: str) -> float:
     return seconds
 
 
-def device_call(ctx) -> Callable[[], object]:
-    """A zero-argument callable that runs the operator on the device under test."""
+def device_call(ctx, *, backend=None) -> Callable[[], object]:
+    """A zero-argument callable that runs the operator on the device under test.
+
+    Pass *backend* to build the same call for a second device (F7 compares the
+    accelerator with the CPU); the inputs come from the same seed either way.
+    """
     args, kwargs = ctx.inputs(torch.float32)
-    moved = tuple(ctx.move(a) for a in args)
+    if backend is not None and backend.device_type != ctx.device.type:
+        device = backend.make_device(0)
+        moved = tuple(a.to(device) if isinstance(a, torch.Tensor) else a for a in args)
+    else:
+        moved = tuple(ctx.move(a) for a in args)
 
     def call():
         return ctx.op.forward(*moved, **kwargs)
