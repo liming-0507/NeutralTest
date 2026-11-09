@@ -34,7 +34,10 @@ class Op:
     variants: tuple[str, ...]
     sample: Callable[[str, torch.dtype, torch.Generator], tuple[Args, Kwargs]]
     forward: Callable[..., torch.Tensor]
-    discrete: bool = False  # output is a sign/selection, so byte equality is meaningful
+    discrete: bool = False  # output is a selection: byte equality is meaningful
+    #: True when the operator does communication-shaped work (a grouped GEMM over
+    #: variable segment lengths), so its cost is not a pure function of the shape.
+    communicated: bool = False
     differentiable: bool = True
     tags: frozenset[str] = field(default_factory=frozenset)
 
@@ -162,6 +165,7 @@ OPS: tuple[Op, ...] = (
         variants=("g4", "g4-tail"),
         sample=_grouped_gemm_sample,
         forward=_grouped_gemm_forward,
+        communicated=True,
         tags=frozenset({"reduction"}),
     ),
     Op(
@@ -190,6 +194,7 @@ OPS: tuple[Op, ...] = (
         sample=_relu_sample,
         forward=_relu_forward,
         discrete=True,
+        communicated=False,
         tags=frozenset(),
     ),
     Op(
@@ -199,6 +204,7 @@ OPS: tuple[Op, ...] = (
         variants=("row",),
         sample=_amax_sample,
         forward=_amax_forward,
+        communicated=False,
         tags=frozenset({"reduction"}),
     ),
 )
