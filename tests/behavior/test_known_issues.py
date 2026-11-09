@@ -66,9 +66,9 @@ def test_a_registered_deviation_is_reported_as_known(tmp_path: Path) -> None:
     result = run_pytest(suite, "--backend=cpu", "--known-registry", str(registry))
     output = result.stdout + result.stderr
 
-    assert result.returncode == 0, output
-    assert "known issues: 1 registered cell(s) reproduced" in output
+    assert "known issues: 1 cell(s) matched a known-issue entry" in output
     assert "toy-wrong-narrow-mantissa" in output
+    assert result.returncode == 0, output
     # the cell must not be swallowed into the pass column
     assert "1 known" in output or "known" in output
 

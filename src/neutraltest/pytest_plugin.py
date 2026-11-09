@@ -466,7 +466,7 @@ def pytest_terminal_summary(terminalreporter: Any, exitstatus: int, config: pyte
         for known_id, _ in hits:
             tally[known_id] = tally.get(known_id, 0) + 1
         terminalreporter.write_line(
-            f"known issues: {len(tally)} registered cell(s) reproduced "
+            f"known issues: {len(tally)} cell(s) matched a known-issue entry "
             f"({sum(tally.values())} test(s)) -- see known_issues/; "
             "re-check with `neutraltest known --verify`"
         )

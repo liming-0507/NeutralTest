@@ -68,7 +68,7 @@ entry:
 $ neutraltest gbz73 --backend=privateuse1
 fp32 matmul precision: highest (float32 matmul keeps a 24-bit mantissa)
 ...
-known issues: 5 registered cell(s) reproduced (5 test(s)) -- see known_issues/; re-check with `neutraltest known --verify`
+known issues: 5 cell(s) matched a known-issue entry (5 test(s)) -- see known_issues/; re-check with `neutraltest known --verify`
   KNOWN  accelerator-fp32-conv1d-pad1
   KNOWN  accelerator-fp32-conv2d-groups-2
   KNOWN  accelerator-fp32-conv2d-pad1
