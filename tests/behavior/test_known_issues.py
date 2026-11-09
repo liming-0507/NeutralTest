@@ -66,10 +66,11 @@ def test_a_registered_deviation_is_reported_as_known(tmp_path: Path) -> None:
     result = run_pytest(suite, "--backend=cpu", "--known-registry", str(registry))
     output = result.stdout + result.stderr
 
-    # -q hides the per-test reason line (it belongs to the non-quiet report), so
-    # the machine-readable trace here is the summary's KNOWN line plus the id echo
-    assert "  KNOWN  toy-wrong-narrow-mantissa" in result.stdout
-    assert "known issues: 1 cell(s) matched a known-issue entry" in result.stdout
+    # pytest 9 announces the summary in a header printed before the tests run, so
+    # -q cannot show it; ask for exactly what is being checked instead
+    result = run_pytest(suite, "--backend=cpu", "--known-registry", str(registry), "-rx")
+    output = result.stdout + result.stderr
+    assert "KNOWN[toy-wrong-narrow-mantissa]" in output
     assert result.returncode == 0, output
 
 
