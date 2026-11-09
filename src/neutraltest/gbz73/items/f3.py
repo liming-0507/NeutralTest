@@ -10,7 +10,7 @@ from __future__ import annotations
 import torch
 
 from ..context import RunContext
-from ._support import adapt, measure
+from ._support import adapt, measure, require_resolvable
 
 ID = "F3"
 OPS = None
@@ -21,11 +21,14 @@ def run(ctx: RunContext) -> None:
     x = torch.randn(128, 32, generator=generator)
     args, kwargs = adapt(ctx.op.name, x)
     moved = tuple(ctx.move(a) for a in args)
-    measured = measure(lambda: ctx.op.forward(*moved, **kwargs))
+    measured = require_resolvable(measure(lambda: ctx.op.forward(*moved, **kwargs)), ctx.op.name)
 
     # The baseline is a second, independent expression of the same contract.
     baseline_args, baseline_kwargs = adapt(ctx.op.name, x.clone())
-    baseline = measure(lambda: ctx.op.forward(*baseline_args, **baseline_kwargs))
+    baseline = require_resolvable(
+        measure(lambda: ctx.op.forward(*baseline_args, **baseline_kwargs)),
+        f"{ctx.op.name} (baseline)",
+    )
 
     if measured <= 0 or baseline <= 0:
         raise AssertionError(f"{ctx.op.name}: a timing came back as zero")

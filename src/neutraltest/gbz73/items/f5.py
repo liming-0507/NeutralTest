@@ -8,7 +8,7 @@ measurement is not an answer, and two independent batches agree.
 from __future__ import annotations
 
 from ..context import RunContext
-from ._support import device_call, measure
+from ._support import device_call, measure, require_resolvable
 
 ID = "F5"
 OPS = None
@@ -27,8 +27,8 @@ def run(ctx: RunContext) -> None:
             f"{ctx.op.name}: a timing came back as zero (cold {cold:.3e}, warm {warm:.3e})"
         )
 
-    first = measure(call, warmup=_WARMUP, repeat=_REPEAT)
-    second = measure(call, warmup=_WARMUP, repeat=_REPEAT)
+    first = require_resolvable(measure(call, warmup=_WARMUP, repeat=_REPEAT), ctx.op.name)
+    second = require_resolvable(measure(call, warmup=_WARMUP, repeat=_REPEAT), f"{ctx.op.name} (2)")
     spread = max(first, second) / max(min(first, second), 1e-12)
     if spread > 3.0:
         raise AssertionError(

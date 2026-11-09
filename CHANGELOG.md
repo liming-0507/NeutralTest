@@ -7,12 +7,16 @@
 - A registered deviation is its own outcome: `known`, `K` in the GB/Z matrix, a
   `known` column in the pytest summary, and a `KNOWN[<id>]` reason line carrying the
   measured deviation. It is never counted as passed and never as failed.
-- `src/neutraltest/known_issues/privateuse1_fp32_convolution.json` registers the
-  five float32 convolutions one `privateuse1` accelerator computes with a ten-bit
-  mantissa (conv2d pad1/groups-2/stride-2, conv_transpose2d, conv1d), with both
-  measurements and four arguments why the harness is not the suspect. The
-  measured environment lives in the git-ignored `known_issues.local/` and is
-  folded in by id at load time.
+- Any registry is loaded from a path, so a registration set is data rather than
+  source: `--known-registry PATH` (repeatable), `NEUTRALTEST_KNOWN`, or a JSON file
+  dropped into `known_issues.local/` (git-ignored). The shipped
+  `known_issues/example.json` is a format example with illustrative numbers; a
+  registry that names a product does not belong in this repository, and the
+  measured environment of a real entry belongs in `known_issues.local/`, where it
+  is folded in by id at load time.
+- The summary lists every entry in the loaded registry and marks the ones that
+  reproduced (`KNOWN  <id> x2`), so a registration that stops matching is visible as a
+  bare id rather than as silence.
 - `neutraltest known` lists the registry, `--id` shows one entry, `--verify`
   re-runs every entry against its backend and reports `KNOWN` / `FIXED`
   (`--fail-on-fixed` exits 1 so CI notices a retired registration).
@@ -32,6 +36,14 @@
   hard-coded 1e-6, and reports the measured deviation.
 - The privateuse1 stub scenarios skip, with a reason, on a torch build that already
   registers a privateuse1 backend (the rename is process-wide and one-shot).
+
+### Fixed — timing rows on a machine that cannot resolve them
+
+- F3 and F5 measured sub-microsecond CPU calls, where thread migration alone moves the
+  median by 2x: the same operator passed on one run and failed on the next. Both rows
+  now refuse to judge a timing below `LOW_RESOLUTION_NS` (200 ns) and report it as
+  `na` with the reason, and `measure()` warms up 10 and takes 25 samples instead of
+  3 and 7. A verdict about the clock is not a verdict about the operator.
 
 ### Added
 

@@ -100,9 +100,11 @@ def run_feature(feature: Feature, op: Op, backend: Backend, *, seed: int = 0) ->
         return Result(feature.id, op.name, "passed", "", time.perf_counter() - started)
     except Exception as exc:  # noqa: BLE001 - the outcome is data, not control flow
         from .context import NotApplicable
+        from .items._support import NotVerifiable
 
-        if isinstance(exc, NotApplicable):
-            return Result(feature.id, op.name, "na", exc.reason, time.perf_counter() - started)
+        if isinstance(exc, (NotApplicable, NotVerifiable)):
+            reason = exc.reason if isinstance(exc, NotApplicable) else str(exc)
+            return Result(feature.id, op.name, "na", reason, time.perf_counter() - started)
         entry = _known_entry(feature, op, backend)
         if entry is not None:
             return Result(

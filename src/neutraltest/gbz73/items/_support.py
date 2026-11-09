@@ -74,8 +74,24 @@ def within_half_ulp(
     return bool((back.detach() - original.detach()).abs().le(allowed * slack).all())
 
 
-def measure(fn, *, warmup: int = 3, repeat: int = 7) -> float:
-    """Median wall time of `fn`, after enough warm-up to leave the cold path."""
+class NotVerifiable(RuntimeError):
+    """A check that needs a number this machine cannot resolve reliably."""
+
+
+#: Below this, the clock is comparing noise: a CPU thread migrated to a busy core
+#: can take twice as long on the same input, and no timing check can tell that from
+#: a slow kernel.
+LOW_RESOLUTION_NS = 200.0
+
+
+def measure(fn, *, warmup: int = 10, repeat: int = 25) -> float:
+    """Median wall time of `fn`, after enough warm-up to leave the cold path.
+
+    Per-call numbers in this suite run well under a microsecond on a CPU, which is
+    the same order as scheduling noise. One measurement is therefore both the
+    median and an interleaved one, and the caller decides whether the median is
+    above the resolution floor before believing anything derived from it.
+    """
     for _ in range(warmup):
         fn()
     samples = []
@@ -85,6 +101,16 @@ def measure(fn, *, warmup: int = 3, repeat: int = 7) -> float:
         samples.append(time.perf_counter() - start)
     samples.sort()
     return samples[len(samples) // 2]
+
+
+def require_resolvable(seconds: float, what: str) -> float:
+    """Reject a timing the clock cannot resolve; `na` beats a guess."""
+    if seconds * 1e9 < LOW_RESOLUTION_NS:
+        raise NotVerifiable(
+            f"{what} takes {seconds * 1e9:.0f} ns, below the {LOW_RESOLUTION_NS:.0f} ns this "
+            "machine can time reliably; the clock, not the operator, would decide the verdict"
+        )
+    return seconds
 
 
 def device_call(ctx) -> Callable[[], object]:
