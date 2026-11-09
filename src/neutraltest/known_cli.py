@@ -124,7 +124,7 @@ def _observe(entry: known.KnownIssue, backend: Any, cases: dict[str, OpCase]) ->
         # the one recorded at registration time.
         try:
             actual, expected = evaluate(case, backend.make_device(index), dtype, backend=backend)
-            observed = f"{_worst_abs(actual.cpu(), expected.cpu()):.3e}"
+            observed = f"{_worst_abs(actual, expected):.3e}"
         except Exception as exc:
             # Say why instead of a bare "n/a": the operator may have raised, or the
             # backend may still be compiling, and the reader cannot tell them apart.
@@ -134,11 +134,19 @@ def _observe(entry: known.KnownIssue, backend: Any, cases: dict[str, OpCase]) ->
 
 
 def _worst_abs(actual: Any, expected: Any) -> float:
-    """Largest absolute difference, over every output the case returns."""
-    from .compare import flatten
+    """Largest absolute difference, over every output the case returns.
+
+    An operator that returns a tuple (pooling with indices) is fine here: the
+    generic flattener walks named tuples and mappings too, which ``.cpu()`` on the
+    whole result would not.
+    """
+    from .compare import flatten, to_cpu
+
+    def leaves(value: Any) -> list[Any]:
+        return [to_cpu(leaf) for leaf in flatten(value)]
 
     worst = 0.0
-    for got, want in zip(flatten(actual), flatten(expected), strict=True):
+    for got, want in zip(leaves(actual), leaves(expected), strict=True):
         difference = float((got.double() - want.double()).abs().max()) if got.numel() else 0.0
         worst = max(worst, difference)
     return worst

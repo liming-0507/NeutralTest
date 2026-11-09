@@ -254,6 +254,33 @@ def test_verify_reports_a_fixed_entry_and_can_fail_on_it(
     assert run_known(_args(registry=[str(path)], fail_on_fixed=True)) == 1
 
 
+def test_verify_reads_the_deviation_of_an_operator_that_returns_a_tuple(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Pooling returns (values, indices); the observed column must survive that."""
+    path = _write(tmp_path, [_entry()])
+    tuple_case = OpCase(
+        id="conv2d/pad1",
+        family="pooling",
+        op="max_pool2d",
+        fn=lambda x: (
+            x if x.dtype is torch.float64 else torch.zeros_like(x),
+            torch.zeros(x.shape, dtype=torch.int64),
+        ),
+        build=lambda dtype, generator: ((torch.randn(4, 4, dtype=dtype),), {}),
+        dtypes=(torch.float32,),
+        out_dtypes=(None, torch.int64),
+    )
+    monkeypatch.setattr(
+        "neutraltest.known_cli._conformance_cases", lambda: {"conv2d/pad1": tuple_case}
+    )
+    assert run_known(_args(registry=[str(path)])) == 0
+    out = capsys.readouterr().out
+    assert "1 still reproduce" in out
+    # the observed deviation is a number, not "unreadable (...)"
+    assert "unreadable" not in out
+
+
 def test_verify_rejects_an_unknown_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     path = _write(tmp_path, [_entry(case="no/such-case")])
     monkeypatch.setattr("neutraltest.known_cli._conformance_cases", dict)
