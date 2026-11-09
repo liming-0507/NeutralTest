@@ -68,12 +68,12 @@ entry:
 $ neutraltest gbz73 --backend=privateuse1
 fp32 matmul precision: highest (float32 matmul keeps a 24-bit mantissa)
 ...
-known issues: 5 cell(s) matched a known-issue entry (5 test(s)) -- see known_issues/; re-check with `neutraltest known --verify`
-  KNOWN  accelerator-fp32-conv1d-pad1
-  KNOWN  accelerator-fp32-conv2d-groups-2
-  KNOWN  accelerator-fp32-conv2d-pad1
-  KNOWN  accelerator-fp32-conv2d-stride2
-  KNOWN  accelerator-fp32-conv-transpose2d
+known issues: 5 entry/entries in the registry -- see known_issues/; KNOWN <id> marks a reproduced one
+  KNOWN  accelerator-fp32-conv1d-pad1 x1
+  KNOWN  accelerator-fp32-conv2d-groups-2 x1
+  KNOWN  accelerator-fp32-conv2d-pad1 x1
+  KNOWN  accelerator-fp32-conv2d-stride2 x1
+  KNOWN  accelerator-fp32-conv-transpose2d x1
   ...
 ```
 

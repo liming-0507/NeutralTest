@@ -30,6 +30,7 @@ from typing import Any
 import pytest
 import torch
 
+from . import known
 from .backends.base import Backend, as_backend
 from .backends.registry import BackendNotFound, discover, resolve_spec
 from .errors import UnsupportedByBackend
@@ -233,10 +234,8 @@ def pytest_configure(config: pytest.Config) -> None:
         known=config.getoption("known"),
     )
 
-    from . import known as known_module
-
     registry_paths = config.getoption("known_registry")
-    known_module.use(known_module.load(registry_paths) if registry_paths else None)
+    known.use(known.load(registry_paths) if registry_paths else None)
 
     unavailable = [backend.name for backend in selected if not backend.is_available()]
     strict = config.getoption("backend_strict")
@@ -395,12 +394,6 @@ def pytest_runtest_logreport(report: pytest.TestReport) -> None:
     recorder = _recorder()
     if recorder is None:
         return
-    known_id = _known_id(report)
-    if known_id is not None:
-        config = _ACTIVE_CONFIG
-        if config is not None:
-            hits = config.stash[STATE].setdefault("known_hits", [])
-            hits.append((known_id, report.nodeid))
     backend = getattr(report, "nt_backend", None)
     if backend is None:
         # Not a backend-parametrised test: the summary counts conformance results only.
@@ -460,20 +453,24 @@ def pytest_terminal_summary(terminalreporter: Any, exitstatus: int, config: pyte
         terminalreporter.write_line(
             f"{unsupported} result(s) raised UnsupportedByBackend (policy: {policy}){hint}"
         )
-    hits = state.get("known_hits") or []
-    if hits:
-        tally: dict[str, int] = {}
-        for known_id, _ in hits:
-            tally[known_id] = tally.get(known_id, 0) + 1
+    tally: dict[str, int] = {}
+    for result in recorder.results:
+        if result.outcome == "known":
+            extracted = _KNOWN_RE.search(result.message or "")
+            if extracted:
+                tally[extracted.group(1)] = tally.get(extracted.group(1), 0) + 1
+    known_entries = list(known.registry())
+    if known_entries:
+        # Asked of the registry rather than read back from the reports: a failed
+        # assertion may have been written before the xfail reason, and a report that
+        # went through a rerun plugin may no longer carry it at all.
         terminalreporter.write_line(
-            f"known issues: {len(tally)} cell(s) matched a known-issue entry "
-            f"({sum(tally.values())} test(s)) -- see known_issues/; "
-            "re-check with `neutraltest known --verify`"
+            f"known issues: {len(known_entries)} entry/entries in the registry "
+            "-- see known_issues/; KNOWN <id> marks a reproduced one"
         )
-        for known_id, count in sorted(tally.items()):
-            suffix = f" x{count}" if count > 1 else ""
-            terminalreporter.write_line(f"  KNOWN  {known_id}{suffix}")
-        print(" ".join(known_id for known_id, _ in hits))
+        for entry in known_entries:
+            suffix = f" x{tally[entry.id]}" if tally.get(entry.id) else ""
+            terminalreporter.write_line(f"  KNOWN  {entry.id}{suffix}")
 
     failures = [result for result in recorder.results if result.outcome == "failed"]
     if failures:
@@ -618,12 +615,13 @@ def _outcome_of(report: pytest.TestReport) -> str | None:
     return None
 
 
+#: Searching, not matching: xfail_strict may prepend its own text to the reason.
 _KNOWN_RE = re.compile(r"KNOWN\[([^\]]+)\]")
 
 
 def _known_id(report: pytest.TestReport) -> str | None:
     """The registry id an xfail came from, if it came from known_issues."""
-    match = _KNOWN_RE.match(str(getattr(report, "wasxfail", "")))
+    match = _KNOWN_RE.search(str(getattr(report, "wasxfail", "")))
     return match.group(1) if match else None
 
 
