@@ -10,7 +10,7 @@ from __future__ import annotations
 import torch
 
 from ..context import RunContext
-from ._support import adapt, measure, require_resolvable
+from ._support import NOISE_SLACK, adapt, measure, require_resolvable
 
 ID = "F3"
 OPS = None
@@ -33,7 +33,7 @@ def run(ctx: RunContext) -> None:
     if measured <= 0 or baseline <= 0:
         raise AssertionError(f"{ctx.op.name}: a timing came back as zero")
     ratio = measured / baseline
-    if not ratio <= 5.0:
+    if not ratio <= 5.0 * NOISE_SLACK:
         raise AssertionError(
             f"{ctx.op.name}: {ratio:.2f}x the baseline, which is not the same operator"
         )

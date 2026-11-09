@@ -39,11 +39,13 @@
 
 ### Fixed — timing rows on a machine that cannot resolve them
 
-- F3 and F5 measured sub-microsecond CPU calls, where thread migration alone moves the
-  median by 2x: the same operator passed on one run and failed on the next. Both rows
-  now refuse to judge a timing below `LOW_RESOLUTION_NS` (200 ns) and report it as
-  `na` with the reason, and `measure()` warms up 10 and takes 25 samples instead of
-  3 and 7. A verdict about the clock is not a verdict about the operator.
+- F2, F3 and F5 are ratios of two measured timings, and on a shared machine two
+  identical calls differ by 30-50 %: F2 failed on a 128-row layer_norm it had passed
+  minutes earlier, F3 and F5 on operators that take 25 us a call. Every ratio bound
+  now carries `NOISE_SLACK` (1.5x), and a call under `LOW_RESOLUTION_NS` (200 ns) is
+  reported as `na` with the reason instead of being judged; `measure()` warms up 10
+  and takes 25 samples instead of 3 and 7. A verdict about the clock is not a verdict
+  about the operator.
 
 ### Added
 

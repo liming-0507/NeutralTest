@@ -8,7 +8,7 @@ measurement is not an answer, and two independent batches agree.
 from __future__ import annotations
 
 from ..context import RunContext
-from ._support import device_call, measure, require_resolvable
+from ._support import NOISE_SLACK, device_call, measure, require_resolvable
 
 ID = "F5"
 OPS = None
@@ -30,7 +30,7 @@ def run(ctx: RunContext) -> None:
     first = require_resolvable(measure(call, warmup=_WARMUP, repeat=_REPEAT), ctx.op.name)
     second = require_resolvable(measure(call, warmup=_WARMUP, repeat=_REPEAT), f"{ctx.op.name} (2)")
     spread = max(first, second) / max(min(first, second), 1e-12)
-    if spread > 3.0:
+    if spread > 3.0 * NOISE_SLACK:
         raise AssertionError(
             f"{ctx.op.name}: the protocol is not reproducible ({spread:.1f}x between batches)"
         )

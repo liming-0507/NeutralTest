@@ -103,6 +103,12 @@ def measure(fn, *, warmup: int = 10, repeat: int = 25) -> float:
     return samples[len(samples) // 2]
 
 
+#: A ratio of two timings has this much noise before the operator does anything:
+#: on a shared CPU the same call repeats within about 30 %, so 1.5x is the
+#: narrowest ratio this protocol can defend.
+NOISE_SLACK = 1.5
+
+
 def require_resolvable(seconds: float, what: str) -> float:
     """Reject a timing the clock cannot resolve; `na` beats a guess."""
     if seconds * 1e9 < LOW_RESOLUTION_NS:
