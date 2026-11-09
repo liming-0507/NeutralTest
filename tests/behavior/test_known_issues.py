@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 import pytest
-from tests.behavior.test_plugin_options import run_pytest
+from _pytest_runner import run_pytest
 
 #: A case that is wrong by construction: the float64 reference is right, the
 #: float32 result is off by 1.0, which no sane tolerance accepts.

@@ -8,16 +8,10 @@ installed in the environment.
 from __future__ import annotations
 
 import json
-import os
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
-
-import neutraltest
-
-SRC = Path(neutraltest.__file__).resolve().parent.parent
+from _pytest_runner import run_pytest
 
 BASIC_SUITE = """
 import pytest
@@ -49,29 +43,6 @@ def test_missing_kernel(backend):
 def _write(directory: Path, name: str, body: str) -> Path:
     (directory / name).write_text(body, encoding="utf-8")
     return directory
-
-
-def run_pytest(suite: Path, *arguments: str) -> subprocess.CompletedProcess:
-    env = dict(os.environ)
-    env["PYTHONPATH"] = str(SRC) + os.pathsep + env.get("PYTHONPATH", "")
-    env["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] = "1"
-    env.pop("NEUTRALTEST_BACKEND", None)
-    return subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "pytest",
-            "-p",
-            "neutraltest.pytest_plugin",
-            str(suite),
-            "-q",
-            *arguments,
-        ],
-        capture_output=True,
-        text=True,
-        env=env,
-        timeout=300,
-    )
 
 
 def test_backend_selection_and_markers(tmp_path: Path) -> None:
