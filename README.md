@@ -235,14 +235,19 @@ keeps running and gets its own outcome, `known` (`K` in the matrix), with a reas
 line naming the entry; `--known=strict` turns every registered cell back into a
 failure for release runs.
 
-Five float32 convolutions on one `privateuse1` accelerator are registered today:
-a ten-bit mantissa on a path that does not follow `--fp32-precision`, 1855–5649x
-further from the float64 reference than the CPU is on the same case. Each entry
-records the operator, shape, dtype, both measurements and four arguments for why
-the harness is not the suspect; the exact environment (torch, backend package,
-card, container) sits in the git-ignored `known_issues.local/` beside the suite,
-joined by id, so the shipped file stays free of it. `neutraltest known --verify`
-re-runs every entry and reports `KNOWN` or `FIXED`.
+Registrations are data, loaded from a path, so this repository ships a format
+example (`known_issues/example.json`, illustrative numbers) and not a verdict about
+anybody's hardware. Five float32 convolutions on one `privateuse1` accelerator are
+registered in the working copy of the team that measured them — a ten-bit mantissa
+on a path that does not follow `--fp32-precision`, 1855–5649x further from the
+float64 reference than the CPU is on the same case. Each entry records the
+operator, shape, dtype, both measurements and four arguments for why the harness
+is not the suspect; the exact environment (torch, backend package, card,
+container) sits in the git-ignored `known_issues.local/`, joined by id, so neither
+the entry nor the shipped file carries a product name. `neutraltest known
+--verify` re-runs every entry and prints the deviation measured now next to the one
+recorded at registration time: same number, same behaviour; `FIXED` once it stops
+reproducing.
 See [docs/known-issues.md](docs/known-issues.md) for the criteria and the schema.
 
 ## Growing next to PyTorch
