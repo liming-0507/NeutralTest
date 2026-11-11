@@ -140,6 +140,12 @@ def _build_parser() -> argparse.ArgumentParser:
         "--ops", default=None, metavar="LIST", help="comma separated operator names"
     )
     matrix.add_argument(
+        "--clause",
+        default="73",
+        choices=("73", "72", "all"),
+        help="which clause to cover: 73 (default), 72, or all",
+    )
+    matrix.add_argument(
         "--features", default=None, metavar="LIST", help="comma separated row ids, e.g. A1,A2,B3"
     )
     matrix.add_argument(
@@ -369,8 +375,10 @@ def _test(args: argparse.Namespace) -> int:
 
 
 def _gbz73(args: argparse.Namespace) -> int:
-    from .gbz73 import runner as matrix
+    from . import matrix as matrices
+    from .gbz72.marks import STANDARD_COLUMNS
     from .gbz73.features import FEATURES
+    from .gbz73.inference.columns import COLUMNS as COLUMNS72
     from .gbz73.ops import OPS
 
     discovered = discover()
@@ -388,14 +396,26 @@ def _gbz73(args: argparse.Namespace) -> int:
         )
         return 2
 
-    ops = OPS
+    wanted_ops: tuple[str, ...] | None = None
     if args.ops:
-        wanted = {name.strip() for name in args.ops.split(",") if name.strip()}
-        unknown = wanted - {op.name for op in OPS}
-        if unknown:
-            print(f"error: unknown operator(s): {', '.join(sorted(unknown))}", file=sys.stderr)
-            return 2
-        ops = tuple(op for op in OPS if op.name in wanted)
+        wanted_ops = tuple(name.strip() for name in args.ops.split(",") if name.strip())
+        operators = {op.name for op in OPS}
+        columns = set(COLUMNS72) | set(STANDARD_COLUMNS)
+        if args.clause == "73":
+            unknown = set(wanted_ops) - operators
+            if unknown:
+                print(f"error: unknown operator(s): {', '.join(sorted(unknown))}", file=sys.stderr)
+                return 2
+        elif args.clause == "72":
+            unknown = set(wanted_ops) - columns
+            if unknown:
+                print(f"error: unknown column(s): {', '.join(sorted(unknown))}", file=sys.stderr)
+                return 2
+        else:
+            unknown = set(wanted_ops) - operators - columns
+            if unknown:
+                print(f"error: unknown operator(s): {', '.join(sorted(unknown))}", file=sys.stderr)
+                return 2
 
     features = FEATURES
     if args.features:
@@ -408,27 +428,38 @@ def _gbz73(args: argparse.Namespace) -> int:
 
     failures = 0
     for backend in backends:
-        report = matrix.run_all(
-            backend, ops=ops, features=features, fp32_precision=args.fp32_precision
+        runs = matrices.run(
+            backend,
+            clause=args.clause,
+            ops=wanted_ops,
+            features=features,
+            fp32_precision=args.fp32_precision,
         )
         if args.json:
             import json
 
-            print(json.dumps(report.as_dict(), indent=2))
+            if len(runs) == 1:
+                payload = runs[0].as_dict()
+            else:
+                payload = {"clauses": {run.clause: run.as_dict() for run in runs}}
+            print(json.dumps(payload, indent=2))
         else:
             print(
                 f"backend: {backend.name}  device_type={backend.device_type}  index={args.device_index}"
             )
-            print(f"fp32 matmul precision: {report.fp32_precision}")
-            print(matrix.render_matrix(report, ops=tuple(op.name for op in ops)))
-            print()
-            print(matrix.render_summary(report))
-            print()
-            print(matrix.render_disclosure(report))
-            declared, exercised = matrix.coverage_gap(report)
-            print()
-            print(f"declared by the text: {declared} cells; exercised by this run: {exercised}")
-        failures += len(report.failed)
+            for run in runs:
+                if len(runs) > 1:
+                    print(f"clause: {run.clause}")
+                print(f"fp32 matmul precision: {run.report.fp32_precision}")
+                print(run.render())
+                print()
+                print(run.summary())
+                print()
+                print(run.disclosure())
+                declared, exercised = run.coverage()
+                print()
+                print(f"declared by the text: {declared} cells; exercised by this run: {exercised}")
+        failures += sum(len(run.report.failed) for run in runs)
     return 1 if failures else 0
 
 

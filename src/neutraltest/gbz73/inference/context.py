@@ -131,18 +131,28 @@ class InferenceContext:
     # -- the three verbs --------------------------------------------------
     def call(self, backend: Backend | None = None, *, variant: str | None = None) -> Any:
         """Run the column's kernel on ``backend`` (default: the device under test)."""
+        args, kwargs = self.inputs(torch.float32, variant)
+        return self.call_with(args, kwargs, backend=backend)
+
+    def call_with(self, args: tuple, kwargs: dict, *, backend: Backend | None = None) -> Any:
+        """Run the kernel on arguments a feature script built itself.
+
+        The same movement, synchronisation and collection as :meth:`call`, so a
+        script that needs a different shape or a poisoned operand does not have
+        to re-implement the device dance.
+        """
         target = backend or self.backend
-        args, kwargs = self._directional_inputs(torch.float32, variant)
+        directional, directional_kwargs = self.project(args, kwargs)
         if target.device_type == "cpu":
-            moved = args
+            moved = directional
         else:
             device = target.make_device(self.device_index)
-            moved = tuple(a.to(device) if isinstance(a, torch.Tensor) else a for a in args)
-        out = self.kernel()(*moved, **kwargs)
+            moved = tuple(a.to(device) if isinstance(a, torch.Tensor) else a for a in directional)
+        out = self.kernel()(*moved, **directional_kwargs)
         target.synchronize()
         return self.collect(out)
 
-    def _directional_inputs(self, dtype: torch.dtype, variant: str | None) -> tuple[tuple, dict]:
+    def project(self, args: tuple, kwargs: dict) -> tuple[tuple, dict]:
         """The arguments of the operator *this column* differentiates.
 
         The cache family is the only one where the forward and the backward are
@@ -153,7 +163,6 @@ class InferenceContext:
         autograd -- so the two directions cannot end up on different data, and
         adding a second directional family is a one-line change instead of four.
         """
-        args, kwargs = self.inputs(dtype, variant)
         if self.family != "kv_cache":
             return args, kwargs
         keys, values, cache_k, cache_v, index = args
@@ -165,6 +174,9 @@ class InferenceContext:
         # them in: the destination is the tensor the kernel returns, so all five
         # arguments stay.
         return (keys, values, cache_k, cache_v, index), kwargs
+
+    def _directional_inputs(self, dtype: torch.dtype, variant: str | None) -> tuple[tuple, dict]:
+        return self.project(*self.inputs(dtype, variant))
 
     def _directional_positions(self) -> tuple[int, ...]:
         """Argument positions this column differentiates.
@@ -210,6 +222,20 @@ class InferenceContext:
         """CPU float64 result: the golden baseline."""
         return self._forward_reference(torch.float64, variant, self.backward)
 
+    def reference_with(
+        self, args: tuple, kwargs: dict, *, dtype: torch.dtype = torch.float32
+    ) -> Any:
+        """The reference on arguments a feature script built itself.
+
+        ``normal`` and ``golden`` always run the sampler's own call; a feature
+        that varies a shape, an operand or a parameter needs the reference on
+        exactly the same call. Floating arguments are cast to ``dtype`` so the
+        baseline can be taken in float64 without the caller rebuilding them.
+        """
+        forward, _ = self._implementation()
+        directional, directional_kwargs = self.project(_cast(args, dtype), kwargs)
+        return forward(*directional, **directional_kwargs)
+
     # -- judgement -------------------------------------------------------
     def tolerance_multiplier(self) -> float:
         """How far this column is allowed to drift from its own baseline."""
@@ -242,21 +268,34 @@ class InferenceContext:
         two travel together: a gradient vector with the wrong shape is a bug that
         a value comparison alone will happily miss (it broadcasts).
         """
-        args, kwargs = self._directional_inputs(dtype, variant)
-        _, jacobian = self._implementation()
-        forward_out = self._forward_reference(dtype, variant, self.backward)
-        cotangent = _cotangent(forward_out, dtype)
-        jac = jacobian(*args, **kwargs)
-        return [g for g in jac(cotangent) if g is not None], _prepared_shapes(args)
+        args, kwargs = self.inputs(dtype, variant)
+        return self.gradients_with(args, kwargs, dtype=dtype)
+
+    def gradients_with(
+        self, args: tuple, kwargs: dict, *, dtype: torch.dtype = torch.float64
+    ) -> tuple[list[torch.Tensor], list[tuple[int, ...]]]:
+        """The analytic Jacobian of this column on a caller's own arguments."""
+        forward, jacobian = self._implementation()
+        directional, directional_kwargs = self.project(_cast(args, dtype), kwargs)
+        cotangent = _cotangent(forward(*directional, **directional_kwargs), dtype)
+        jac = jacobian(*directional, **directional_kwargs)
+        return [g for g in jac(cotangent) if g is not None], _prepared_shapes(directional)
 
     def autograd_gradients(
         self, dtype: torch.dtype = torch.float64, *, variant: str | None = None
-    ) -> list[torch.Tensor | None]:
+    ) -> list[torch.Tensor]:
         """Reference gradients straight from autograd, used only to cross-check."""
-        args, kwargs = self._directional_inputs(dtype, variant)
+        args, kwargs = self.inputs(dtype, variant)
+        return self.autograd_with(args, kwargs, dtype=dtype)
+
+    def autograd_with(
+        self, args: tuple, kwargs: dict, *, dtype: torch.dtype = torch.float64
+    ) -> list[torch.Tensor]:
+        """Autograd's answer for a caller's own arguments."""
+        directional, directional_kwargs = self.project(_cast(args, dtype), kwargs)
         leaves: list[torch.Tensor] = []
         rebuilt: list[Any] = []
-        for position, arg in enumerate(args):
+        for position, arg in enumerate(directional):
             # A free argument is route metadata, not a value the operator
             # differentiates; both sides must ignore it or the comparison is
             # between different questions.
@@ -272,10 +311,10 @@ class InferenceContext:
             else:
                 rebuilt.append(arg)
         forward, _ = self._implementation()
-        out = forward(*rebuilt, **kwargs)
+        out = forward(*rebuilt, **directional_kwargs)
         cotangent = _cotangent(out, dtype)
         grads = torch.autograd.grad(out, leaves, cotangent, allow_unused=True)
-        return list(grads)
+        return [g for g in grads if g is not None]
 
     def check_gradients(self, *, rel: float | None = None, msg: str = "") -> tuple[float, float]:
         """Analytic Jacobian vs the backend's own backward, and vs autograd.
@@ -319,6 +358,13 @@ class InferenceContext:
 
     def note(self, message: str) -> None:
         self.notes.append(message)
+
+
+def _cast(args: tuple, dtype: torch.dtype) -> tuple:
+    """Every floating tensor in ``args``, viewed in ``dtype``."""
+    return tuple(
+        a.to(dtype) if isinstance(a, torch.Tensor) and a.is_floating_point() else a for a in args
+    )
 
 
 def _cotangent(out: Any, dtype: torch.dtype) -> Any:

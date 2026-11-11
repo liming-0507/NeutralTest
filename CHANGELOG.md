@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+### Added — the 7.2 matrix
+
+- Clause 7.2's twelve columns are now rows of the same catalogue: `gbz72/` holds
+  the applicability table (`marks.py`, 182 marked pairs over 30 rows), the
+  recorded reason for every unmarked pair (`reasons.py`), one script per marked
+  row (`items/`), and a runner that renders the same `P/F/-/K` matrix with the
+  standard's column order.
+- `--clause {73,72,all}` on `neutraltest gbz73` and on the pytest plugin. The
+  command defaults to `73` and prints exactly what it printed before the option
+  existed; the plugin defaults to `all`, so a plain `pytest` exercises both.
+- `neutraltest.matrix` is the clause-aware facade the command uses: it resolves
+  `--ops` against operators for 7.3 and column names (or the standard's own
+  labels, e.g. `Add-前`) for 7.2, and narrows only the clauses a name belongs to.
+- `docs/gbz72.md`: how the applicability table, the scripts and the tolerance
+  multipliers fit together.
+
 ### Added — known issues
 
 - A registered deviation is its own outcome: `known`, `K` in the GB/Z matrix, a

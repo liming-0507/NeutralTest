@@ -9,9 +9,13 @@ from __future__ import annotations
 
 import pytest
 
+from neutraltest import clause
 from neutraltest.gbz73 import runner
 from neutraltest.gbz73.features import FEATURES
 from neutraltest.gbz73.ops import OPS
+
+if not clause.covers(clause.get_clause(), "73"):
+    pytest.skip(f"clause {clause.get_clause()} does not cover part 7.3", allow_module_level=True)
 
 COMBINATIONS = [(feature, op) for op in OPS for feature in FEATURES]
 IDS = [f"{feature.id}-{op.name}" for feature, op in COMBINATIONS]

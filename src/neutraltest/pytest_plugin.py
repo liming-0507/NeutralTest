@@ -198,6 +198,18 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help="extra known-issue registry file or directory (repeatable)",
     )
     group.addoption(
+        "--clause",
+        action="store",
+        choices=("73", "72", "all"),
+        default="all",
+        dest="clause",
+        help=(
+            "which clause the conformance tests cover: 'all' (default) collects both "
+            "matrices, '73' only the feature x operator matrix, '72' only the feature x "
+            "column matrix"
+        ),
+    )
+    group.addoption(
         "--nt-no-summary",
         action="store_true",
         dest="nt_no_summary",
@@ -221,7 +233,9 @@ def pytest_configure(config: pytest.Config) -> None:
     if not selected:
         raise pytest.UsageError(f"--backend={spec!r} selected no backend")
 
-    from . import precision
+    from . import clause, precision
+
+    clause.set_clause(config.getoption("clause"))
 
     pinned = precision.pin(config.getoption("fp32_precision"))
 
@@ -253,6 +267,7 @@ def pytest_configure(config: pytest.Config) -> None:
         "recorder": Recorder(),
         "seed": config.getoption("nt_seed"),
         "fp32_precision": pinned,
+        "clause": clause.get_clause(),
         "summary": not config.getoption("nt_no_summary"),
         # snapshotted: a test is allowed to mutate the global policy, the report is not
         "on_unsupported": config.getoption("on_unsupported"),
@@ -311,6 +326,8 @@ def pytest_report_header(config: pytest.Config) -> list[str]:
         f"device_index:{policy.device_index}, seed:{policy.seed}",
         f"neutralTest: fp32 matmul precision = {state['fp32_precision']}",
     ]
+    if state.get("clause", "all") != "all":
+        lines.append(f"neutralTest: clause = {state['clause']}")
     if state["unavailable"]:
         lines.append(
             "neutralTest: WARNING unavailable backends will be reported as skipped: "

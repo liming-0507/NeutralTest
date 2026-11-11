@@ -1,0 +1,236 @@
+"""Runner for the part 7.2 feature matrix.
+
+One cell is a (feature, column) pair: a numbered feature of the catalogue
+exercised against one of the twelve columns of the clause.  The machinery is the
+one part 7.3 uses -- the same outcome vocabulary, the same ``P/F/-/K`` symbols,
+the same disclosure of everything that was not exercised -- so the two matrices
+read the same way and can be printed by the same command.
+
+The difference is the gate.  A 7.3 cell is skipped when the item module declines
+the operator; here the applicability table itself decides, and a pair the table
+does not mark is disclosed with the reason recorded for its feature.
+"""
+
+from __future__ import annotations
+
+import time
+from dataclasses import dataclass, field
+from typing import Any
+
+from ..gbz73.features import FEATURES, Feature
+from ..gbz73.inference.columns import BY_NAME, Column
+from . import marks, reasons
+
+SYMBOLS = {"passed": "P", "failed": "F", "na": "-", "known": "K", "not_run": "·"}
+VERDICTS = ("passed", "failed", "na", "known")
+
+
+@dataclass(slots=True)
+class Result:
+    """One (feature, column) cell."""
+
+    feature: str
+    column: str
+    outcome: str
+    detail: str = ""
+    seconds: float = 0.0
+
+    @property
+    def ok(self) -> bool:
+        return self.outcome in ("passed", "na", "known")
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "feature": self.feature,
+            "column": self.column,
+            "outcome": self.outcome,
+            "detail": self.detail,
+            "seconds": round(self.seconds, 6),
+        }
+
+
+@dataclass
+class Report:
+    """The cells of one run, in the order they were produced."""
+
+    results: list[Result] = field(default_factory=list)
+    columns: tuple[str, ...] = marks.TABLE_ORDER
+    fp32_precision: str = ""
+
+    def add(self, result: Result) -> None:
+        self.results.append(result)
+
+    def cell(self, feature: str, column: str) -> Result | None:
+        for result in self.results:
+            if result.feature == feature and result.column == column:
+                return result
+        return None
+
+    def by_outcome(self, outcome: str) -> list[Result]:
+        return [r for r in self.results if r.outcome == outcome]
+
+    @property
+    def failed(self) -> list[Result]:
+        return self.by_outcome("failed")
+
+    def as_dict(self) -> dict[str, Any]:
+        counts = {outcome: len(self.by_outcome(outcome)) for outcome in VERDICTS}
+        return {
+            "totals": counts,
+            "fp32_precision": self.fp32_precision,
+            "columns": list(self.columns),
+            "results": [r.as_dict() for r in self.results],
+        }
+
+
+def run_column(feature: Feature, column: Column, backend: Any, *, seed: int = 0) -> Result:
+    """Execute one feature against one column, capturing the outcome."""
+    from . import items
+
+    started = time.perf_counter()
+    if not marks.is_marked(feature.id, column.name):
+        return Result(
+            feature.id,
+            column.name,
+            "na",
+            reasons.reason_for(feature.id, column.name),
+            0.0,
+        )
+    try:
+        from ..gbz73.inference.context import InferenceContext
+
+        module = items.module_for(feature.id)
+        if module.COLUMNS is not None and column.name not in module.COLUMNS:
+            return Result(
+                feature.id,
+                column.name,
+                "na",
+                f"the script for {feature.id} does not apply to {column.family} columns",
+                0.0,
+            )
+        context = InferenceContext(column=column, backend=backend, feature_id=feature.id, seed=seed)
+        module.run(context)
+        return Result(feature.id, column.name, "passed", "", time.perf_counter() - started)
+    except Exception as exc:  # noqa: BLE001 - the outcome is data, not control flow
+        from ..gbz73.context import NotApplicable
+        from ..gbz73.items._support import NotVerifiable
+
+        if isinstance(exc, (NotApplicable, NotVerifiable)):
+            reason = exc.reason if isinstance(exc, NotApplicable) else str(exc)
+            return Result(feature.id, column.name, "na", reason, time.perf_counter() - started)
+        entry = _known_entry(feature, column, backend)
+        if entry is not None:
+            return Result(
+                feature.id,
+                column.name,
+                "known",
+                f"KNOWN[{entry.id}] {entry.summary}; measured {entry.deviation()}",
+                time.perf_counter() - started,
+            )
+        return Result(
+            feature.id,
+            column.name,
+            "failed",
+            f"{type(exc).__name__}: {exc}",
+            time.perf_counter() - started,
+        )
+
+
+def _known_entry(feature: Feature, column: Column, backend: Any):
+    """The registered deviation covering this cell, if the policy wants one."""
+    from .. import known
+    from ..policy import get_policy
+
+    if get_policy().known == "strict":
+        return None
+    return known.registry().find(f"gbz72/{feature.id}/{column.name}", "float32", backend)
+
+
+def run_all(
+    backend: Any,
+    *,
+    columns: tuple[Column, ...] | None = None,
+    features: tuple[Feature, ...] | None = None,
+    seed: int = 0,
+    fp32_precision: str | None = None,
+) -> Report:
+    """Run every selected feature against every selected column."""
+    from .. import precision
+
+    chosen_columns = _table_columns() if columns is None else columns
+    chosen_features = tuple(FEATURES if features is None else features)
+    report = Report(results=[], columns=tuple(c.name for c in chosen_columns))
+    if fp32_precision is not None:
+        report.fp32_precision = precision.pin(fp32_precision)
+    else:
+        report.fp32_precision = precision.describe()
+    for feature in chosen_features:
+        for column in chosen_columns:
+            report.add(run_column(feature, column, backend, seed=seed))
+    return report
+
+
+def _symbol(result: Result | None) -> str:
+    return SYMBOLS["not_run"] if result is None else SYMBOLS[result.outcome]
+
+
+def _clip(text: str, width: int) -> str:
+    return text if len(text) <= width else text[: width - 1] + "…"
+
+
+def applied(feature: Feature, columns: tuple[Column, ...] | None = None) -> str:
+    """The applicability bits the table records for ``feature``, in column order."""
+    chosen = _table_columns() if columns is None else columns
+    return "".join("1" if marks.is_marked(feature.id, c.name) else "0" for c in chosen)
+
+
+def _table_columns() -> tuple[Column, ...]:
+    """The twelve columns as :class:`Column` objects, in the standard's order."""
+    return tuple(BY_NAME[name] for name in marks.TABLE_ORDER)
+
+
+def render_matrix(
+    report: Report, *, columns: tuple[Column, ...] | None = None, width: int = 34
+) -> str:
+    """The feature × column grid, one row per catalogue entry."""
+    columns = _table_columns() if columns is None else columns
+    header = f"{'id':<4} {'tier':<12} {'feature':<{width}} {'applied':<12} " + " ".join(
+        f"{c.name[:6]:>6}" for c in columns
+    )
+    lines = [header]
+    for feature in FEATURES:
+        cells = " ".join(f"{_symbol(report.cell(feature.id, c.name)):>6}" for c in columns)
+        lines.append(
+            f"{feature.id:<4} {feature.tier:<12} {_clip(feature.title, width):<{width}} "
+            f"{applied(feature, columns):<12} {cells}"
+        )
+    return "\n".join(lines)
+
+
+def render_summary(report: Report) -> str:
+    """Totals, per-column coverage, and the first failures."""
+    counts = {outcome: len(report.by_outcome(outcome)) for outcome in VERDICTS}
+    lines = ["cells: " + ", ".join(f"{outcome}: {counts[outcome]}" for outcome in VERDICTS)]
+    for name in report.columns:
+        cells = [r for r in report.results if r.column == name]
+        passed = sum(1 for r in cells if r.outcome == "passed")
+        na = sum(1 for r in cells if r.outcome == "na")
+        known = sum(1 for r in cells if r.outcome == "known")
+        suffix = f" known {known:>2}" if known else ""
+        lines.append(f"  {name:<20} passed {passed:>2}/{len(cells):<3} na {na:>2}{suffix}")
+    for result in report.failed[:10]:
+        lines.append(f"  FAIL {result.feature}/{result.column}: {_clip(result.detail, 120)}")
+    return "\n".join(lines)
+
+
+def render_disclosure(report: Report) -> str:
+    """One line per cell that was not exercised, with its recorded reason."""
+    lines = [f"{r.feature}/{r.column}: {r.detail}" for r in report.by_outcome("na")]
+    return "\n".join(lines)
+
+
+def coverage_gap(report: Report) -> tuple[int, int]:
+    """``(cells the table declares, cells this run exercised)``."""
+    declared = len(marks.marked_pairs())
+    exercised = sum(1 for r in report.results if r.outcome in ("passed", "failed"))
+    return declared, exercised
