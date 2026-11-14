@@ -123,8 +123,19 @@ def kv_write_forward(
     cache_v: torch.Tensor,
     index: torch.Tensor,
 ) -> tuple:
-    """Store the tokens in the rows ``index`` names, leaving the others alone."""
-    return cache_k.index_put((index,), keys), cache_v.index_put((index,), values)
+    """Store the tokens in the rows ``index`` names, leaving the others alone.
+
+    A token stored into a row that another token already claimed in the same
+    call resolves last-writer-wins: two tokens pointing at one slot is a bug in
+    the caller, and a scheduler that randomises the order would make the answer
+    differ between runs. ``index_put`` defaults to the opposite (it accumulates),
+    which turns a repeated slot into a doubled value and reads as a kernel
+    mismatch in the store's row, where nothing is wrong with the store.
+    """
+    return (
+        cache_k.index_put((index,), keys, accumulate=False),
+        cache_v.index_put((index,), values, accumulate=False),
+    )
 
 
 def kv_write_jacobian(
