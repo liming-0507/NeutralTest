@@ -183,7 +183,9 @@ def budget(context: Any, dtype: torch.dtype = torch.float32, *, kind: str = "ele
     computes in float64; a backend that widens through float32 has already spent
     the float32 budget before the comparison starts.
     """
-    return tolerance_for(effective_compute_dtype(context, dtype), kind, context.tolerance_multiplier()).rtol
+    return tolerance_for(
+        effective_compute_dtype(context, dtype), kind, context.tolerance_multiplier()
+    ).rtol
 
 
 def effective_compute_dtype(context: Any, dtype: torch.dtype) -> torch.dtype:

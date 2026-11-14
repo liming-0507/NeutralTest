@@ -5,7 +5,7 @@ from __future__ import annotations
 import torch
 
 from neutraltest.backends import CpuBackend
-from neutraltest.gbz72._support import effective_compute_dtype, _computes_in_float64
+from neutraltest.gbz72._support import _computes_in_float64, effective_compute_dtype
 from neutraltest.gbz73.inference.columns import BY_NAME
 from neutraltest.gbz73.inference.context import InferenceContext
 
@@ -35,9 +35,7 @@ class _Stub:
 
 
 def _context() -> InferenceContext:
-    return InferenceContext(
-        column=BY_NAME["softmax_fwd"], backend=CpuBackend(), feature_id="A1"
-    )
+    return InferenceContext(column=BY_NAME["softmax_fwd"], backend=CpuBackend(), feature_id="A1")
 
 
 def test_cpu_arithmetic_is_float64() -> None:
