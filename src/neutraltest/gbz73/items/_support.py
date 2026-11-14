@@ -132,7 +132,17 @@ def device_call(ctx, *, backend=None) -> Callable[[], object]:
     else:
         moved = tuple(ctx.move(a) for a in args)
 
+    target = backend if backend is not None else ctx.backend
+    sync = getattr(target, "synchronize", None)
+
     def call():
-        return ctx.op.forward(*moved, **kwargs)
+        out = ctx.op.forward(*moved, **kwargs)
+        if sync is not None:
+            # An accelerator returns as soon as the launch is queued. Timing the
+            # queue is not timing the operator: without this the device side can
+            # still be executing when the clock stops, which is how a correct
+            # kernel ends up "3x slower than the CPU" on a 13 us call.
+            sync()
+        return out
 
     return call
