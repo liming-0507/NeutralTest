@@ -8,6 +8,12 @@ row.
 
 Tolerance: the column's float32 budget. The shapes change what is computed, not
 how precisely, so the same budget applies as for the regular shape.
+
+The cache's shapes are the ones where this row used to lie: with a single row
+and three tokens the slot list necessarily names one row three times, which a
+store has no answer for, so the reference refuses it rather than inventing one.
+Those shapes are dropped here and the store's own behaviour on a repeated slot
+is not claimed by this row.
 """
 
 from __future__ import annotations
@@ -27,7 +33,9 @@ SHAPES: dict[str, tuple[dict[str, Any], ...]] = {
         {"batch": 1, "heads": 2, "seq": 1, "width": 3},
     ),
     "kv_cache": (
-        {"rows": 1, "width": 8, "tokens": 3},
+        # Slots must be distinct, so a cache narrower than the token count is
+        # not a shape this row can ask for.
+        {"rows": 3, "width": 8, "tokens": 3},
         {"rows": 37, "width": 13, "tokens": 5},
         {"rows": 977, "width": 16, "tokens": 7},
     ),

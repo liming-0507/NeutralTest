@@ -125,17 +125,21 @@ def kv_write_forward(
 ) -> tuple:
     """Store the tokens in the rows ``index`` names, leaving the others alone.
 
-    A token stored into a row that another token already claimed in the same
-    call resolves last-writer-wins: two tokens pointing at one slot is a bug in
-    the caller, and a scheduler that randomises the order would make the answer
-    differ between runs. ``index_put`` defaults to the opposite (it accumulates),
-    which turns a repeated slot into a doubled value and reads as a kernel
-    mismatch in the store's row, where nothing is wrong with the store.
+    A slot claimed twice in one call is undefined in a real cache -- there is no
+    canonical answer -- so the reference refuses it instead of picking one. The
+    first version used ``index_put``'s default (accumulate), which quietly sums
+    the tokens; a shape-shrinking row then disagreed with a kernel that keeps
+    the last one and the report blamed the store. The sampler never produces a
+    repeated slot; a script that does (B4 shrinks the cache until it must) is
+    told so.
     """
-    return (
-        cache_k.index_put((index,), keys, accumulate=False),
-        cache_v.index_put((index,), values, accumulate=False),
-    )
+    rows = cache_k.shape[0]
+    if rows and int(index.numel()) and bool(((index >= 0) & (index < rows)).logical_not().any()):
+        raise ValueError(f"slot list {index.tolist()} leaves the cache's {rows} rows")
+    claimed = index.tolist()
+    if len(set(claimed)) != len(claimed):
+        raise ValueError(f"slot list {claimed} names a row twice")
+    return cache_k.index_put((index,), keys), cache_v.index_put((index,), values)
 
 
 def kv_write_jacobian(
