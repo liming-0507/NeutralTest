@@ -117,6 +117,27 @@ class InferenceContext:
             raise TypeError(f"{self.column.name} returned {type(value).__name__}, not a tensor")
         return value if value.device.type == "cpu" else value.detach().cpu()
 
+    def on_device(self, value: Any) -> Any:
+        """``value`` on the device under test, rebuilt by the sampler's own route.
+
+        A feature script that reshapes one dimension builds its arguments with
+        the sampler, on the CPU, and then hands them to the kernel.  On a device
+        backend that would put two devices in one call -- the reference answer
+        suspiciously reporting ``mlu:0 and cpu`` read from the test side -- and
+        the right fix is not "every script remembers to move its arguments" but
+        one place that knows how arguments travel.  Scalars, ``None`` slots and
+        index tensors pass through: the sampler keeps them on the CPU on
+        purpose, and the kernel's own wrapper moves what it needs.
+
+        Arguments the device cannot hold (no such dtype) fall back to the CPU
+        copy, so this can never turn a clean input into a new failure.
+        """
+        if isinstance(value, tuple):
+            return tuple(self.on_device(v) for v in value)
+        if not isinstance(value, torch.Tensor):
+            return value
+        return self.move(value)
+
     # -- inputs ----------------------------------------------------------
     def sample(self, dtype: torch.dtype = torch.float32, variant: str | None = None) -> ops.Sample:
         return ops.sample(self.family, dtype, seed=self.seed, variant=variant or self.variant)

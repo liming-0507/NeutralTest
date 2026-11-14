@@ -8,9 +8,12 @@ renamed, reordered, made positional-only, or given a different default breaks th
 first part; a call that only works positionally breaks the second; a call that
 accepts an unknown keyword silently breaks the third.
 
-Tolerance: no numeric comparison. The names, order and defaults are exact, the
-keyword call must produce a bit-identical result to the positional one, and the
-two invalid calls must raise ``TypeError`` specifically rather than any error.
+Tolerance: no numeric comparison for the contract itself -- the names, order and
+defaults are exact, and the two invalid calls must raise ``TypeError``
+specifically rather than any error.  The two valid call forms are the same
+computation, so they are compared at the dtype's budget rather than bit for bit:
+a device may sum in a different order than its positional dispatch does, and
+that rounds differently without breaking anything the clause asks for.
 """
 
 from __future__ import annotations
@@ -20,7 +23,7 @@ from typing import Any
 
 import torch
 
-from .._support import as_tuple, make_inputs, observe
+from .._support import as_tuple, budget, close, make_inputs, observe
 
 ID = "D1"
 COLUMNS = None
@@ -78,10 +81,34 @@ def run(ctx: Any) -> None:
 
 
 def _same(ctx: Any, left: Any, right: Any, what: str) -> None:
-    if len(left) != len(right) or any(
-        not torch.equal(a, b) for a, b in zip(left, right, strict=True)
-    ):
-        raise AssertionError(f"{ctx.column.name}: {what} differs from the positional call")
+    """The two call forms are the same computation, up to rounding.
+
+    Bit equality is the wrong question on a device: the positional and the
+    keyword form can reach the same kernel through different argument-parsing
+    paths, and a reduction that decides its block layout from how the operands
+    arrived may sum in another order.  What the clause asks is that the result
+    does not depend on the call form, so the comparison uses the row's ordinary
+    dtype budget and the dtype only narrows the number, never the verdict.
+    """
+    if len(left) != len(right):
+        raise AssertionError(
+            f"{ctx.column.name}: {what} returned {len(right)} tensors, "
+            f"the positional call returned {len(left)}"
+        )
+    dtype = next((t.dtype for t in left if isinstance(t, torch.Tensor)), torch.float32)
+    allowed = budget(ctx, dtype)
+    for index, (got, want) in enumerate(zip(right, left, strict=True)):
+        if got.shape != want.shape:
+            raise AssertionError(
+                f"{ctx.column.name}: {what} returned output {index} with shape "
+                f"{tuple(got.shape)}, the positional call returned {tuple(want.shape)}"
+            )
+    close(
+        right,
+        left,
+        rel=allowed,
+        msg=f"{ctx.column.name}: {what} differs from the positional call",
+    )
 
 
 def _expect_type_error(ctx: Any, kernel: Any, args: Any, kwargs: dict[str, Any], what: str) -> None:

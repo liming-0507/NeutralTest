@@ -52,6 +52,7 @@ __all__ = [
     "forward",
     "jacobian",
     "make_inputs",
+    "on_device",
     "measure",
     "observe",
     "reference",
@@ -122,6 +123,23 @@ def make_inputs(
             scale = randn(width) * 0.1 + 1.0
         return (randn(rows, width), scale), {"eps": 1e-6}
     raise ValueError(f"unknown family {family!r}")
+
+
+def on_device(context: Any, args: Args, kwargs: Kwargs) -> tuple[Args, Kwargs]:
+    """Arguments a script built itself, moved to the device under test.
+
+    ``make_inputs`` always builds on the CPU, which is right for the reference
+    and wrong for the kernel once the backend is a device.  Every script that
+    reshapes an input, perturbs one element or repeats a call therefore hands
+    its arguments through here; leaving that to each script is how the suite
+    grows rows that fail on every device for a reason that has nothing to do
+    with the thing they measure.
+    """
+    move = getattr(context, "on_device", None)
+    if move is None:
+        return args, kwargs
+    moved = move(tuple(args))
+    return moved, dict(kwargs)
 
 
 def clone_args(args: Sequence[torch.Tensor]) -> tuple[torch.Tensor, ...]:
@@ -226,8 +244,13 @@ def as_tuple(value: Any) -> tuple[torch.Tensor, ...]:
 
 
 def observe(context: Any, args: Args, kwargs: Kwargs) -> tuple[torch.Tensor, ...]:
-    """Run the kernel under test on ``args`` and return its result as a tuple."""
-    return as_tuple(context.call_with(args, kwargs))
+    """Run the kernel under test on ``args`` and return its result as a tuple.
+
+    The movement to the device happens here, so a script that built its own
+    arguments does not have to know which backend it is running on.
+    """
+    moved, moved_kwargs = on_device(context, args, kwargs)
+    return as_tuple(context.call_with(moved, moved_kwargs))
 
 
 def reference(
