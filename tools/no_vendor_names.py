@@ -38,6 +38,11 @@ PATTERNS: tuple[tuple[str, str], ...] = (
     ("adapter", r"\btorch_mlu\b"),
 )
 
+#: Files whose whole job is to spell the patterns out.  They are exempt, and
+#: nothing else is: an exemption list that grows is a rule that has stopped
+#: being enforced.
+EXEMPT = ("tools/no_vendor_names.py",)
+
 #: Never scanned: dependencies, build artefacts, caches.
 SKIP_DIRS = {
     ".git",
@@ -92,6 +97,8 @@ def scan(root: Path) -> list[tuple[Path, int, str, str]]:
             continue
         relative = path.relative_to(root)
         if any(part in SKIP_DIRS for part in relative.parts):
+            continue
+        if relative.as_posix() in EXEMPT:
             continue
         try:
             text = path.read_text(encoding="utf-8")
