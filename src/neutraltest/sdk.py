@@ -367,7 +367,7 @@ def load_catalogue(path: str | os.PathLike[str]) -> SdkProfile:
          "profile": {"name": "sdk-x-2.13",
                      "torch_window": ">=2.13,<2.14",
                      "python_window": ">=3.10,<3.13",
-                     "components": [{"name": "cnnl", "version": "2.3.3",
+                     "components": [{"name": "operator-library", "version": "2.3.3",
                                      "window": ">=2.3,<2.4"}]}}
     """
     payload = json.loads(Path(path).read_text(encoding="utf-8"))

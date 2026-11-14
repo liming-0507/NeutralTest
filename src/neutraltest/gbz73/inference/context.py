@@ -122,8 +122,8 @@ class InferenceContext:
 
         A feature script that reshapes one dimension builds its arguments with
         the sampler, on the CPU, and then hands them to the kernel.  On a device
-        backend that would put two devices in one call -- the reference answer
-        suspiciously reporting ``mlu:0 and cpu`` read from the test side -- and
+        backend that would put two devices in one call -- the error reading
+        "<device>:0 and cpu" -- and
         the right fix is not "every script remembers to move its arguments" but
         one place that knows how arguments travel.  Scalars, ``None`` slots and
         index tensors pass through: the sampler keeps them on the CPU on
