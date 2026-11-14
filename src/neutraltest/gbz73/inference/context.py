@@ -359,6 +359,25 @@ class InferenceContext:
     def note(self, message: str) -> None:
         self.notes.append(message)
 
+    def computes_in_float64(self) -> bool:
+        """Whether this backend does float64 arithmetic, not just float64 storage.
+
+        Allocating a float64 tensor is not the question: a backend without a
+        native float64 kernel hands one out happily and quietly computes in
+        float32. The honest probe runs an operation whose float32 answer is
+        wrong and asks whether float64 gets it right.
+        """
+        base = float(2**24)
+        try:
+            large = torch.tensor([base], dtype=torch.float64, device=self.device)
+            one = torch.tensor([1.0], dtype=torch.float64, device=self.device)
+            total = (large + one - large).to("cpu")
+        except Exception:  # noqa: BLE001 - a backend that cannot run it does not have it
+            return False
+        # 2**24 + 1 is the smallest integer float32 cannot hold; a backend that
+        # really computes in float64 keeps the +1.
+        return bool(total.item() == 1.0)
+
 
 def _cast(args: tuple, dtype: torch.dtype) -> tuple:
     """Every floating tensor in ``args``, viewed in ``dtype``."""

@@ -157,8 +157,60 @@ def close(
 
 
 def budget(context: Any, dtype: torch.dtype = torch.float32, *, kind: str = "elementwise") -> float:
-    """The dtype and family budget this column's float32 result may spend."""
-    return tolerance_for(dtype, kind, context.tolerance_multiplier()).rtol
+    """The dtype and family budget a result computed in ``dtype`` may spend.
+
+    ``dtype`` is the width the *device* computes in, not the width the reference
+    computes in.  The reference is always float64, so a row that asks for a
+    float64 result is only entitled to the float64 budget when the backend really
+    computes in float64; a backend that widens through float32 has already spent
+    the float32 budget before the comparison starts.
+    """
+    return tolerance_for(effective_compute_dtype(context, dtype), kind, context.tolerance_multiplier()).rtol
+
+
+def effective_compute_dtype(context: Any, dtype: torch.dtype) -> torch.dtype:
+    """The narrower of ``dtype`` and what the backend can actually compute in.
+
+    A backend that advertises no float64 arithmetic (``torch.float64 not in
+    torch._C._get_privateuse1_backend_name`` backed kernels) still answers a
+    float64 request -- it computes in float32 and widens afterwards.  Judging
+    that answer against the float64 budget would fail every float64 row on a
+    correct backend, so the budget tracks the width the arithmetic really used.
+
+    The downgrade is recorded rather than silent: :func:`note_downgrade` pushes
+    the fact onto the column so the report can show it.
+    """
+    if dtype is not torch.float64:
+        return dtype
+    if _computes_in_float64(context):
+        return dtype
+    return torch.float32
+
+
+def _computes_in_float64(context: Any) -> bool:
+    """Whether the backend under test performs float64 arithmetic natively.
+
+    CPU and CUDA do.  A private-use backend does only if it says so through the
+    ``float64`` capability probe; absent a probe the answer is "no", because
+    telling a backend that widens through float32 that it owes float64 accuracy
+    is the failure this function exists to prevent.
+    """
+    probe = getattr(context, "computes_in_float64", None)
+    if probe is not None:
+        return bool(probe())
+    return True
+
+
+def note_downgrade(context: Any, asked: torch.dtype, used: torch.dtype) -> None:
+    """Record that a row asked for one width and the backend computed in another."""
+    if asked is used:
+        return
+    note = getattr(context, "note", None)
+    if note is not None:
+        note(
+            f"asked for {asked} and the backend computes in {used}; the budget "
+            f"follows the arithmetic, not the request"
+        )
 
 
 def as_tuple(value: Any) -> tuple[torch.Tensor, ...]:
@@ -202,6 +254,8 @@ def forward(
     """
     got = observe(context, args, kwargs)
     want = reference(context, args, kwargs, dtype=dtype)
+    used = effective_compute_dtype(context, dtype)
+    note_downgrade(context, dtype, used)
     allowed = budget(context, dtype) if rel is None else rel
     return close(got, want, rel=allowed, msg=msg or f"{context.column.name}: forward")
 
