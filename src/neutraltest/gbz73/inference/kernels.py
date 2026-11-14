@@ -180,7 +180,11 @@ def rope(x: torch.Tensor, position: torch.Tensor, *, interleaved: bool = True) -
 
     width = x.shape[-1]
     half = width // 2
-    inv = torch.exp(-math.log(10000.0) * torch.arange(half, dtype=torch.float64) / half)
+    # The frequency ladder is built where the position lives: a kernel runs with
+    # every operand on one device, and on an accelerator 'cpu' is not that one.
+    inv = torch.exp(
+        -math.log(10000.0) * torch.arange(half, dtype=torch.float64, device=x.device) / half
+    )
     angles = position.to(torch.float64)[..., None] * inv
     cos = angles.cos().to(x.dtype)
     sin = angles.sin().to(x.dtype)
