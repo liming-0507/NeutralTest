@@ -11,6 +11,13 @@ synchronisation per element, or a fallback that runs the reference and then some
 Tolerance: 5 x the noise slack (7.5x). That is deliberately loose: on a CPU the
 two paths are both ``torch`` and the interesting failures are order-of-magnitude,
 which 7.5x still catches while surviving process-level jitter.
+
+Both sides are timed after a warm-up. A device backend pays its first-call costs
+-- module load, kernel image, queue setup -- exactly once, and a ratio built on
+unwarmed timings measures that one-off against a warm reference: a first call of
+42 ms against a 100 us reference reads as 400x and means nothing. The warm-up
+call is not timed, and the column carries the median of the timed calls, so what
+is compared is steady state against steady state.
 """
 
 from __future__ import annotations
@@ -29,6 +36,7 @@ BOUND = 5.0 * NOISE_SLACK
 
 def run(ctx: Any) -> None:
     args, kwargs = make_inputs(family=ctx.family, seed=ctx.seed, variant=ctx.variant)
+    _warm(ctx, args, kwargs)
     measured = measure(lambda: ctx.call_with(args, kwargs))
     baseline = measure(lambda: ctx.reference_with(args, kwargs, dtype=torch.float32))
     for seconds, what in ((measured, "the kernel"), (baseline, "the reference")):
@@ -44,3 +52,12 @@ def run(ctx: Any) -> None:
             f"{BOUND:.1f}x bound"
         )
     ctx.note(f"{ctx.column.name}: kernel/reference cost {ratio:.2f}x")
+
+
+def _warm(ctx: Any, args: Any, kwargs: Any) -> None:
+    """One untimed call on each side, so neither pays its first-call costs inside the ratio."""
+    try:
+        ctx.call_with(args, kwargs)
+        ctx.reference_with(args, kwargs, dtype=torch.float32)
+    except Exception as exc:  # noqa: BLE001 - a kernel that cannot run is A1's finding
+        ctx.note(f"the warm-up call raised {type(exc).__name__}: {exc}")
