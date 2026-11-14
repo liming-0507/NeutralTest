@@ -93,13 +93,26 @@ Use a sparse design instead — each row is a gate, not a sample:
 | --- | --- | --- |
 | our code on supported Pythons | 4 × latest torch | packaging, syntax, pytest-plugin behaviour |
 | our code on old torch | 1 × oldest supported (`2.1`) | do we use an API that did not exist yet |
+| our code in the middle | 1 × a release two minor versions back (`2.9`) | the stack most sites actually certify against |
 | boundaries | oldest py × oldest torch, newest py × newest torch | the corners where both drift at once |
+
+The middle row is not decoration: an accelerator SDK is rebuilt as a whole
+against one torch, and most of them are certified one or two releases behind
+the newest. Without a middle gate, "we broke on the torch the field runs" is
+discovered by a user rather than by CI — the same reasoning behind
+[`neutraltest sdk`](sdk.md), which measures whether the stack you are *on* is
+one you certified.
 
 `tools/torch_matrix.sh` runs exactly that shape and reuses the `uv` cache:
 
 ```bash
-tools/torch_matrix.sh --python 3.10 --torch 2.1.2 2.5.1 2.9.0
+tools/torch_matrix.sh --profile     # oldest / middle / newest, python read from pyproject
+tools/torch_matrix.sh --python 3.10 --torch 2.1.2 2.5.1 2.9.0   # explicit square
 ```
+
+`--profile` reads the oldest torch from `pyproject.toml` and pairs it with a
+Python that actually has a wheel (2.1 stops at 3.11), rather than guessing. CI
+runs the same three gates in `.github/workflows/ci.yml`.
 
 ### 5. Do not build PyTorch from source to run this suite
 

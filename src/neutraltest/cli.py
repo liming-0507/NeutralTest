@@ -17,6 +17,10 @@ Three verbs, deliberately few:
 ``gbz73``
     The FP8 clause matrix: every row of the standard against every operator in
     the catalogue, printed as a table.  ``--json`` for the machine-readable form.
+
+``sdk``
+    Where this environment sits against the SDK release it claims to run, and
+    against PyTorch's own published support window.
 """
 
 from __future__ import annotations
@@ -52,6 +56,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     if raw[:1] == ["gbz73"]:
         args = _build_parser().parse_args(raw)
         return _gbz73(args)
+    if raw[:1] == ["sdk"]:
+        args = _build_parser().parse_args(raw)
+        return _sdk(args)
     if raw[:1] == ["test"]:
         # Everything after "test" belongs to pytest; argparse cannot both own a
         # subcommand and forward an arbitrary tail such as "-q -k matmul".
@@ -82,6 +89,16 @@ def _build_parser() -> argparse.ArgumentParser:
     info = subparsers.add_parser("info", help="list discovered backends")
     _add_backend_arguments(info)
 
+    sdk = subparsers.add_parser(
+        "sdk",
+        help="show where this environment sits against its SDK release and PyTorch",
+        description="Measure the interpreter against the SDK release it claims to run "
+        "(torch window, python window, per component) and against PyTorch's own published "
+        "support window. Deviations are reported, not enforced.",
+    )
+    _add_sdk_arguments(sdk)
+    sdk.add_argument("--json", action="store_true", help="machine readable output")
+
     doctor = subparsers.add_parser("doctor", help="smoke test the selected backends")
     _add_backend_arguments(doctor)
 
@@ -92,6 +109,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "recognise is forwarded to pytest verbatim, e.g. 'neutraltest test --backend=cpu -q'.",
     )
     _add_backend_arguments(test)
+    _add_sdk_arguments(test)
     test.add_argument(
         "pytest_args",
         nargs=argparse.REMAINDER,
@@ -106,6 +124,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "exactly those cells and says whether each deviation still reproduces.",
     )
     _add_backend_arguments(known)
+    _add_sdk_arguments(known)
     known.add_argument(
         "--verify",
         action="store_true",
@@ -136,6 +155,7 @@ def _build_parser() -> argparse.ArgumentParser:
         "catalogue and print the result beside the coverage the text declares.",
     )
     _add_backend_arguments(matrix)
+    _add_sdk_arguments(matrix)
     matrix.add_argument(
         "--ops", default=None, metavar="LIST", help="comma separated operator names"
     )
@@ -188,6 +208,30 @@ def _add_backend_arguments(parser: argparse.ArgumentParser) -> None:
         metavar="N",
         help="device ordinal to probe (default: 0)",
     )
+
+
+def _add_sdk_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--sdk",
+        default=None,
+        metavar="FILE",
+        help="SDK profile (JSON): the release's torch/python windows and its components",
+    )
+    parser.add_argument(
+        "--on-sdk-out-of-band",
+        default="warn",
+        choices=("warn", "skip", "fail"),
+        dest="on_sdk_out_of_band",
+        help="what a deviation from the declared window means: warn (default), skip, or fail",
+    )
+
+
+def _load_sdk(args: argparse.Namespace):
+    from . import sdk
+
+    path = getattr(args, "sdk", None)
+    profile = sdk.load_catalogue(path) if path else None
+    return sdk, profile
 
 
 # --------------------------------------------------------------------------- info
@@ -461,6 +505,27 @@ def _gbz73(args: argparse.Namespace) -> int:
                 print(f"declared by the text: {declared} cells; exercised by this run: {exercised}")
         failures += sum(len(run.report.failed) for run in runs)
     return 1 if failures else 0
+
+
+# --------------------------------------------------------------------------- sdk
+
+
+def _sdk(args: argparse.Namespace) -> int:
+    sdk, profile = _load_sdk(args)
+    status = sdk.measure(profile)
+    if args.json:
+        import json
+
+        print(json.dumps(status.snapshot.as_dict(), indent=2))
+    else:
+        print(sdk.render(status.snapshot))
+        print()
+        print(sdk.describe(status))
+    if status.band == "deviation" and args.on_sdk_out_of_band == "fail":
+        # An inspection command still reports with exit 1, so a pipeline can
+        # gate on "this environment is the one we certified" without parsing.
+        return 1
+    return 0
 
 
 def _suite_directory():

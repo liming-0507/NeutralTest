@@ -193,6 +193,28 @@ CPU 版 torch 解开就 800 MB，带 CUDA 栈要几个 GB，所以框架的原�
 
 数字与细节见 [docs/space.md](docs/space.md)。
 
+## SDK 版本
+
+PyTorch 之外的另一半是**它下面那整套栈**：加速卡 SDK 是整体发版的——驱动、运行时、算子库、
+框架适配层、容器一起重建，绑定在**某一个** PyTorch 版本上。所以「测试挂了」和「测试挂在一个
+没人认证过的栈上」是两件不同的事，而后者往往更有用。
+
+`neutraltest sdk` 把这件事量出来，并且只说量得出的：
+
+```
+component   version     window        band
+----------  ----------  ------------  -----
+python      3.13.13     >=3.10,<3.13  above
+torch       2.15.0+cpu  >=2.13,<2.14  above
+```
+
+- profile 是 JSON（`--sdk examples/sdk-profile.json`），厂商信息不编进代码。
+- 偏差是**披露**而不是失败：`--on-sdk-out-of-band warn|skip|fail`，默认 `warn`。
+- 进程里读不到版本的组件列为 *not measured*，**不会**被当成匹配。
+- 内置的 PyTorch 支持窗口表来自上游 `RELEASE.md` 快照，每次运行都会打印来源与抓取日期。
+
+细节见 [docs/sdk.md](docs/sdk.md)。
+
 ## 树外后端怎么接进来
 
 两种集成方式都支持：注册成 `privateuse1`（不用重编 torch），或直接发行一个设备类型
@@ -256,6 +278,7 @@ accelerator = "vendorx.torch_test:AcceleratorBackend"
 | --- | --- |
 | `neutraltest info` | 版本、torch 构建、已注册的 `privateuse1` 名、后端表、dtype 支持矩阵、容差预算 |
 | `neutraltest doctor` | 每个可用后端跑 7 项冒烟检查（分配、逐元素、矩阵乘、规约、softmax、反向、host↔device 往返），有失败即非零退出 |
+| `neutraltest sdk [--sdk FILE]` | 本机环境相对它声称支持的 SDK 发版、以及相对 PyTorch 官方支持窗口的位置 |
 | `neutraltest test [pytest 参数]` | 带着后端选项调 pytest，默认跑自带一致性套件 |
 
 `doctor` 是区分"卡不在"和"卡在但算错了"最快的办法。

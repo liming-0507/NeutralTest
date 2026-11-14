@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+### Added — SDK version matching
+
+- `neutraltest sdk [--sdk FILE] [--json]` reports where this interpreter sits
+  against the SDK release it claims to run (torch window, python window, per
+  component) and against PyTorch's own published support window. The bundled
+  table is a snapshot of upstream `RELEASE.md`, and the source line is printed
+  with every run.
+- Profiles are JSON, so no vendor is compiled in: `--sdk FILE` or the
+  `NEUTRALTEST_SDK_PROFILE` environment variable, see `examples/sdk-profile.json`
+  and `docs/sdk.md`.
+- `--on-sdk-out-of-band {warn,skip,fail}` on every test-running verb, default
+  `warn`: a deviation from the declared window is disclosed, and a run that
+  claims a certified baseline can refuse to start. No conformance cell changes
+  its outcome because of a version.
+- `RunPolicy.on_sdk_out_of_band`, and `neutraltest.sdk` as a library
+  (`detect`, `measure`, `merge`, `load_catalogue`).
+- Three environment cells in the conformance suite check that the table covers
+  the running release and that every deviation names the window it violates.
+
 ### Added — the 7.2 matrix
 
 - Clause 7.2's twelve columns are now rows of the same catalogue: `gbz72/` holds

@@ -267,6 +267,27 @@ the harness is built to reuse one installation instead of carrying its own:
 
 Details and the numbers: [docs/space.md](docs/space.md).
 
+## SDK versions
+
+The other half of "growing next to PyTorch" is the stack underneath it: an
+accelerator SDK ships as one release, rebuilt against one PyTorch version, so a
+result is only comparable to another result on a stack that is in the same
+window.
+
+`neutraltest sdk` measures that and says nothing it cannot measure:
+
+```
+component   version     window        band
+----------  ----------  ------------  -----
+python      3.13.13     >=3.10,<3.13  above
+torch       2.15.0+cpu  >=2.13,<2.14  above
+```
+
+A profile is JSON (`--sdk examples/sdk-profile.json`), a deviation is a
+disclosure rather than a failure (`--on-sdk-out-of-band warn|skip|fail`), and a
+component the process cannot report is listed as *not measured* instead of
+assumed to match. [docs/sdk.md](docs/sdk.md) has the details.
+
 ## Out-of-tree backends
 
 Two integration models, both supported: registering as `privateuse1` (no torch
@@ -335,6 +356,7 @@ itself: [docs/backends.md](docs/backends.md).
 | `neutraltest doctor` | 7 smoke checks per available backend (allocate, elementwise, matmul, reduction, softmax, backward, host↔device transfer); exits non-zero if any check fails |
 | `neutraltest test [pytest args]` | runs the bundled suite (shipped inside the package); unknown arguments are forwarded to pytest |
 | `neutraltest known [--verify]` | list registered deviations, or re-run them to see whether they still reproduce |
+| `neutraltest sdk [--sdk FILE]` | measure this environment against its SDK release and against PyTorch's published support window |
 
 `doctor` is the fastest way to tell "the device is not there" from "the device
 is there and computes the wrong thing".

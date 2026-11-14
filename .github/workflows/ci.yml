@@ -36,6 +36,10 @@ jobs:
         run: ruff check .
       - name: mypy
         run: mypy
+      # The tree ships without vendor code and without vendor names; this is the
+      # machine check for the second half of that promise.
+      - name: no vendor names
+        run: python tools/no_vendor_names.py
 
   test:
     name: test (py${{ matrix.python }})
@@ -85,6 +89,12 @@ jobs:
           - python: "3.10"
             torch: "2.1.2"
             unsupported: skip   # old torch: a missing kernel is not our regression
+          # The middle leg exists for the same reason the SDK check does: a
+          # stack certified against an older torch is the common case in the
+          # field, and a failure there must not be discovered only by users.
+          - python: "3.13"
+            torch: "2.9.0"
+            unsupported: skip
           - python: "3.13"
             torch: ""          # newest available for this interpreter
             unsupported: fail

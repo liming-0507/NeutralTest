@@ -61,6 +61,7 @@ MARKERS = (
     ("nt_op(name)", "operator name, used for report grouping"),
     ("nt_grad", "the test exercises the backward pass"),
     ("nt_slow", "the test is slow; deselect with -m 'not nt_slow'"),
+    ("nt_sdk_out_of_band", "attached when the environment is outside the declared SDK window"),
 )
 
 
@@ -142,6 +143,28 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         help="what to do when a backend has no kernel for an operator (default: fail)",
     )
     group.addoption(
+        "--sdk",
+        action="store",
+        default=os.environ.get("NEUTRALTEST_SDK_PROFILE") or None,
+        metavar="FILE",
+        help=(
+            "SDK profile (JSON): the release's torch/python windows and its components; "
+            "the run then reports whether this environment is that release"
+        ),
+    )
+    group.addoption(
+        "--on-sdk-out-of-band",
+        action="store",
+        choices=("warn", "skip", "fail"),
+        default=os.environ.get("NEUTRALTEST_ON_SDK_OUT_OF_BAND", "warn"),
+        dest="on_sdk_out_of_band",
+        help=(
+            "what a deviation from the declared SDK window means for the run: "
+            "'warn' (default) reports it and runs, 'skip' marks the run unusable, "
+            "'fail' turns it into an error"
+        ),
+    )
+    group.addoption(
         "--tolerance-multiplier",
         action="store",
         type=float,
@@ -220,6 +243,12 @@ def pytest_addoption(parser: pytest.Parser) -> None:
 # --------------------------------------------------------------------------- hooks
 
 
+def _and_markexpr(current: str, extra: str) -> str:
+    """Combine two ``-m`` expressions without letting an empty one poison it."""
+    current = (current or "").strip()
+    return f"({current}) and ({extra})" if current else extra
+
+
 def pytest_configure(config: pytest.Config) -> None:
     global _ACTIVE_CONFIG
     for marker, description in MARKERS:
@@ -234,8 +263,29 @@ def pytest_configure(config: pytest.Config) -> None:
         raise pytest.UsageError(f"--backend={spec!r} selected no backend")
 
     from . import clause, precision
+    from . import sdk as sdk_module
 
     clause.set_clause(config.getoption("clause"))
+
+    sdk_path = config.getoption("sdk")
+    sdk_profile = sdk_module.load_catalogue(sdk_path) if sdk_path else None
+    sdk_module.set_profile(sdk_profile)
+    sdk_status = sdk_module.measure(sdk_profile)
+    on_out_of_band = config.getoption("on_sdk_out_of_band")
+    if sdk_status.band == "deviation":
+        message = sdk_module.describe(sdk_status)
+        if on_out_of_band == "fail":
+            raise pytest.UsageError(message)
+        if on_out_of_band == "skip":
+            # The marker is attached in pytest_collection_modifyitems; -m does
+            # the actual filtering, so the tests stay collected and are counted
+            # as deselected rather than silently vanishing.
+            config.addinivalue_line("markers", "nt_sdk_out_of_band: run outside the SDK band")
+            config.option.markexpr = _and_markexpr(config.option.markexpr, "not nt_sdk_out_of_band")
+        else:
+            config.issue_config_time_warning(
+                pytest.PytestWarning(f"neutralTest: {message}"), stacklevel=2
+            )
 
     pinned = precision.pin(config.getoption("fp32_precision"))
 
@@ -260,6 +310,7 @@ def pytest_configure(config: pytest.Config) -> None:
         )
 
     config.stash[STATE] = {
+        "sdk": sdk_status,
         "spec": spec,
         "discovered": discovered,
         "selected": selected,
@@ -328,6 +379,11 @@ def pytest_report_header(config: pytest.Config) -> list[str]:
     ]
     if state.get("clause", "all") != "all":
         lines.append(f"neutralTest: clause = {state['clause']}")
+    sdk_status = state.get("sdk")
+    if sdk_status is not None:
+        from . import sdk as sdk_module
+
+        lines.append("neutralTest: sdk = " + sdk_module.describe(sdk_status))
     if state["unavailable"]:
         lines.append(
             "neutralTest: WARNING unavailable backends will be reported as skipped: "
@@ -354,7 +410,16 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    state = config.stash.get(STATE, None)
+    sdk_status = state.get("sdk") if state else None
+    sdk_skip = (
+        sdk_status is not None
+        and sdk_status.band == "deviation"
+        and config.getoption("on_sdk_out_of_band") == "skip"
+    )
     for item in items:
+        if sdk_skip:
+            item.add_marker(pytest.mark.nt_sdk_out_of_band)
         backend = _backend_of(item)
         if backend is None:
             continue

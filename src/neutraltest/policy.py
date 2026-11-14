@@ -19,13 +19,20 @@ __all__ = [
     "reset_policy",
     "patched_policy",
     "OnUnsupported",
+    "OnSdkOutOfBand",
     "KnownMode",
 ]
 
 OnUnsupported = Literal["fail", "skip", "xfail"]
+#: What to do when the environment is outside the SDK / PyTorch support window.
+#: ``warn`` is the default: a deviation is information, and the conformance
+#: results keep their meaning -- only a run that claims to be on a certified
+#: baseline should turn it into an error.
+OnSdkOutOfBand = Literal["warn", "skip", "fail"]
 KnownMode = Literal["report", "strict"]
 
 _VALID_ON_UNSUPPORTED = ("fail", "skip", "xfail")
+_VALID_ON_SDK = ("warn", "skip", "fail")
 _VALID_KNOWN = ("report", "strict")
 
 
@@ -46,6 +53,9 @@ class RunPolicy:
     #: How to treat a cell registered in ``known_issues``: ``report`` marks it
     #: KNOWN (the deviation is expected), ``strict`` fails it anyway.
     known: KnownMode = "report"
+    #: What to do when the running torch/python (or a recorded SDK component)
+    #: sits outside the support window of the selected SDK profile.
+    on_sdk_out_of_band: OnSdkOutOfBand = "warn"
 
     def __post_init__(self) -> None:
         if self.on_unsupported not in _VALID_ON_UNSUPPORTED:
@@ -59,6 +69,11 @@ class RunPolicy:
             raise ValueError(f"device_index must be >= 0, got {self.device_index}")
         if self.known not in _VALID_KNOWN:
             raise ValueError(f"known must be one of {_VALID_KNOWN}, got {self.known!r}")
+        if self.on_sdk_out_of_band not in _VALID_ON_SDK:
+            raise ValueError(
+                f"on_sdk_out_of_band must be one of {_VALID_ON_SDK}, "
+                f"got {self.on_sdk_out_of_band!r}"
+            )
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -68,6 +83,7 @@ class RunPolicy:
             "device_index": self.device_index,
             "seed": self.seed,
             "known": self.known,
+            "on_sdk_out_of_band": self.on_sdk_out_of_band,
         }
 
 

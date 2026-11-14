@@ -88,4 +88,5 @@ def test_as_dict_covers_every_field() -> None:
         "device_index",
         "seed",
         "known",
+        "on_sdk_out_of_band",
     }
