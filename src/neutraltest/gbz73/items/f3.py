@@ -73,6 +73,19 @@ BASELINES: dict[str, Callable[..., torch.Tensor]] = {
 }
 
 
+def _as_counted(context, value: torch.Tensor) -> torch.Tensor:
+    """Float tensor on float32, everything else untouched.
+
+    The ratio compares arithmetic cost, so the floats must match on both
+    sides -- but an index or a group list is not an arithmetic operand, and
+    casting it to float32 makes the operator refuse the call outright
+    (``group_list must be int32 or int64``).
+    """
+    if value.is_floating_point():
+        return (context.move(value) if context is not None else value).float()
+    return context.move(value) if context is not None else value
+
+
 def run(ctx: RunContext) -> None:
     if ctx.device.type == "cpu":
         ctx.na(
@@ -88,10 +101,10 @@ def run(ctx: RunContext) -> None:
     generator = torch.Generator().manual_seed(ctx.seed)
     x = torch.randn(128, 32, generator=generator)
     args, kwargs = adapt(ctx.op.name, x)
-    moved = tuple(ctx.move(a).float() for a in args)
+    moved = tuple(_as_counted(ctx, a) for a in args)
     measured = require_resolvable(measure(lambda: ctx.op.forward(*moved, **kwargs)), ctx.op.name)
 
-    plain_args = tuple(a.float() for a in args)
+    plain_args = tuple(_as_counted(None, a) for a in args)
     reference = require_resolvable(
         measure(lambda: baseline(*plain_args, **kwargs)),
         f"{ctx.op.name} (baseline)",
