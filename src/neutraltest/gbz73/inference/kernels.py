@@ -229,3 +229,27 @@ def for_family(family: str):
     if family not in FAMILIES:
         raise KeyError(f"unknown family {family!r}; known: {', '.join(FAMILIES)}")
     return globals()[family]
+
+
+def independent_of_reference(family: str) -> bool:
+    """Whether the kernel and the part-7.2 reference are genuinely two implementations.
+
+    A timing comparison (row F3) is only evidence when the two sides can cost
+    different amounts.  On a CPU the "kernel" is an eager expression and the
+    reference is the same expression in another file: for ``add`` the bodies are
+    ``a + b * _alpha(alpha)`` and ``a + b * alpha``, for ``softmax`` they are the
+    same statement, and the rest are the same arithmetic spelled differently.
+    Timing them against each other measures the spelling, not the operator, and
+    the ratio sits near 1 whatever the machine does.
+
+    A device backend replaces the kernel with a real kernel launch, so there the
+    comparison is between two things that can differ.  This predicate is about
+    the *framework's own* CPU pair, which is what a row must not present as a
+    baseline.
+    """
+    return family in _INDEPENDENT_FAMILIES
+
+
+#: Families with a second implementation that computes the result a different
+#: way, so a ratio between them can carry a finding.
+_INDEPENDENT_FAMILIES: frozenset[str] = frozenset()

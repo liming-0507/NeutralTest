@@ -33,6 +33,7 @@ from typing import Any
 
 import torch
 
+from ...gbz73.inference.kernels import independent_of_reference
 from .._support import NOISE_SLACK, make_inputs, measure
 
 ID = "F3"
@@ -43,6 +44,16 @@ DEVICE_BOUND = 8.0 * NOISE_SLACK
 
 
 def run(ctx: Any) -> None:
+    if ctx.device.type == "cpu" and not independent_of_reference(ctx.family):
+        # Both sides are the same eager expression here, so the ratio is a
+        # constant near 1 and the bound can never fire.  Reporting a pass would
+        # claim a comparison that was never made; the row has nothing to say
+        # about this column on this backend.
+        ctx.na(
+            f"the kernel and the reference for {ctx.family} are the same arithmetic in this "
+            f"build (one eager expression each), so a ratio between them measures spelling, "
+            f"not cost; this row needs a device backend or a second genuine implementation"
+        )
     args, kwargs = make_inputs(family=ctx.family, seed=ctx.seed, variant=ctx.variant)
     _warm(ctx, args, kwargs)
     measured = measure(lambda: ctx.call_with(args, kwargs))

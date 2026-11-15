@@ -23,6 +23,7 @@ the runner asks for the module by name and fails loudly when the file is absent.
 from __future__ import annotations
 
 import importlib
+import re
 from pathlib import Path
 from types import ModuleType
 
@@ -52,9 +53,28 @@ def module_for(feature_id: str) -> ModuleType:
     return module
 
 
+_SCRIPT_NAME = re.compile(r"^[a-f]\d+$")
+
+
 def available_features() -> tuple[str, ...]:
-    """The rows that have a script, in catalogue order."""
-    return tuple(sorted(path.stem.upper() for path in Path(__file__).parent.glob("[a-f][0-9].py")))
+    """The rows that have a script, in catalogue order.
+
+    The name pattern allows more than one digit on purpose: ``a10.py`` and
+    ``a11.py`` are real rows, and a glob of ``[a-f][0-9].py`` silently drops
+    every row past the ninth in a group -- silently, because a missing script is
+    exactly what this function is supposed to report.
+    """
+    found = (
+        path.stem.upper()
+        for path in Path(__file__).parent.glob("*.py")
+        if _SCRIPT_NAME.match(path.stem)
+    )
+    return tuple(sorted(found, key=_catalogue_key))
+
+
+def _catalogue_key(feature_id: str) -> tuple[str, int]:
+    """Sort by group letter, then numerically so A10 follows A9 rather than A1."""
+    return feature_id[0], int(feature_id[1:])
 
 
 def columns_of(feature_id: str) -> tuple[str, ...] | None:
