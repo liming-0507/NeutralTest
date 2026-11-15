@@ -67,6 +67,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     if raw[:1] == ["sdk"]:
         args = _build_parser().parse_args(raw)
         return _sdk(args)
+    if raw[:1] == ["catalogue"]:
+        args = _build_parser().parse_args(raw)
+        return _catalogue(args)
     if raw[:1] == ["test"]:
         # Everything after "test" belongs to pytest; argparse cannot both own a
         # subcommand and forward an arbitrary tail such as "-q -k matmul".
@@ -204,6 +207,16 @@ def _build_parser() -> argparse.ArgumentParser:
         default="highest",
         choices=("highest", "high", "medium"),
         help="pin torch.set_float32_matmul_precision before measuring (default: highest)",
+    )
+    catalogue = subparsers.add_parser(
+        "catalogue",
+        help="print the part 7.2 table and the reason class of every cell as JSON",
+        description="Print the part 7.2 applicability table resolved cell by cell: which "
+        "cells are exercised and, for the rest, which class of not-applicable -- so a "
+        "report can label a cell without reaching into the tables itself.",
+    )
+    catalogue.add_argument(
+        "--compact", action="store_true", help="one line of JSON instead of the indented form"
     )
     return parser
 
@@ -444,6 +457,13 @@ def _test(args: argparse.Namespace) -> int:
         )
     print("running: pytest " + " ".join(argv))
     return int(pytest.main(argv))
+
+
+def _catalogue(args: argparse.Namespace) -> int:
+    from .gbz72 import inventory
+
+    print(inventory.dumps(indent=None if args.compact else 2))
+    return 0
 
 
 def _gbz73(args: argparse.Namespace) -> int:

@@ -9,20 +9,20 @@ from neutraltest.gbz72 import items, marks, reasons, runner
 from neutraltest.gbz73.features import FEATURES
 from neutraltest.gbz73.inference.columns import COLUMN_SPECS, Column
 
-MARKED = 182
+MARKED = 191
 PER_COLUMN = {
-    "add_fwd": 21,
-    "flash_attention_fwd": 17,
+    "add_fwd": 22,
+    "flash_attention_fwd": 18,
     "softmax_fwd": 15,
     "rope_fwd": 19,
     "kv_cache_fwd": 18,
-    "rms_norm_fwd": 18,
-    "add_bwd": 13,
-    "flash_attention_bwd": 14,
-    "softmax_bwd": 11,
-    "rope_bwd": 13,
-    "kv_cache_bwd": 12,
-    "rms_norm_bwd": 11,
+    "rms_norm_fwd": 19,
+    "add_bwd": 14,
+    "flash_attention_bwd": 15,
+    "softmax_bwd": 12,
+    "rope_bwd": 14,
+    "kv_cache_bwd": 13,
+    "rms_norm_bwd": 12,
 }
 
 

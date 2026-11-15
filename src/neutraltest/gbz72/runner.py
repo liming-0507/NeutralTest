@@ -45,8 +45,21 @@ class Result:
             "column": self.column,
             "outcome": self.outcome,
             "detail": self.detail,
+            "cause": self.cause,
             "seconds": round(self.seconds, 6),
         }
+
+    @property
+    def cause(self) -> str | None:
+        """The reason class of a cell that was not exercised, else ``None``.
+
+        Derived rather than stored: a marked pair has no class by construction,
+        and a runtime not-applicable is a class of its own (the scenario exists
+        and this sample did not reach it), so the two cannot drift apart.
+        """
+        if self.outcome != "na":
+            return None
+        return reasons.cause_of(self.feature, self.column)
 
 
 @dataclass
@@ -224,8 +237,13 @@ def render_summary(report: Report) -> str:
 
 
 def render_disclosure(report: Report) -> str:
-    """One line per cell that was not exercised, with its recorded reason."""
-    lines = [f"{r.feature}/{r.column}: {r.detail}" for r in report.by_outcome("na")]
+    """One line per cell that was not exercised, with its class and its reason.
+
+    The class comes first because it is what a reader triages on: the cells that
+    cannot exist and the cells nobody has written yet otherwise read the same
+    here, which is how a table of excuses hides its own gaps.
+    """
+    lines = [f"{r.feature}/{r.column} [{r.cause}]: {r.detail}" for r in report.by_outcome("na")]
     return "\n".join(lines)
 
 

@@ -69,7 +69,20 @@ APPLICABILITY: dict[str, tuple[str, ...]] = {
         "rms_norm_bwd",
     ),
     "A2": ("add_fwd", "kv_cache_fwd", "rms_norm_fwd"),
-    "A3": ("softmax_fwd", "rope_fwd", "kv_cache_fwd"),
+    "A3": (
+        "add_fwd",
+        "flash_attention_fwd",
+        "softmax_fwd",
+        "rope_fwd",
+        "kv_cache_fwd",
+        "rms_norm_fwd",
+        "add_bwd",
+        "flash_attention_bwd",
+        "softmax_bwd",
+        "rope_bwd",
+        "kv_cache_bwd",
+        "rms_norm_bwd",
+    ),
     "A4": ("rope_fwd",),
     "A5": ("kv_cache_fwd",),
     "A6": ("add_fwd", "flash_attention_fwd", "softmax_fwd", "rope_fwd"),
@@ -261,7 +274,7 @@ APPLICABILITY: dict[str, tuple[str, ...]] = {
 }
 
 #: Number of marked (feature, column) pairs; the coverage denominator.
-MARKED = 182
+MARKED = 191
 
 
 def columns_of(feature_id: str) -> tuple[str, ...]:

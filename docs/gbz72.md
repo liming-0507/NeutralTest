@@ -6,7 +6,7 @@ normalisation — each in a forward and a backward column. Clause 7.3's 45 rows
 are the test items; this package applies those rows to the twelve columns.
 
 The applicability data is not guesswork. `marks.py` holds the per-(row, column)
-table the analysis drew up: 182 marked pairs, spread over 30 rows, with the
+table the analysis drew up: 191 marked pairs, spread over 30 rows, with the
 fifteen rows that mark nothing recorded with a reason in `reasons.py`. A row
 with no mark claims no column, and a pair without a mark is reported as `-` with
 that reason in the disclosure, exactly as the 7.3 side reports an operator a row

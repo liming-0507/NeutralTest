@@ -44,7 +44,7 @@
 ### Added — the 7.2 matrix
 
 - Clause 7.2's twelve columns are now rows of the same catalogue: `gbz72/` holds
-  the applicability table (`marks.py`, 182 marked pairs over 30 rows), the
+  the applicability table (`marks.py`, 191 marked pairs over 30 rows), the
   recorded reason for every unmarked pair (`reasons.py`), one script per marked
   row (`items/`), and a runner that renders the same `P/F/-/K` matrix with the
   standard's column order.
