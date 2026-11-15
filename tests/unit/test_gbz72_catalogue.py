@@ -9,20 +9,20 @@ from neutraltest.gbz72 import items, marks, reasons, runner
 from neutraltest.gbz73.features import FEATURES
 from neutraltest.gbz73.inference.columns import COLUMN_SPECS, Column
 
-MARKED = 191
+MARKED = 228
 PER_COLUMN = {
-    "add_fwd": 22,
-    "flash_attention_fwd": 18,
-    "softmax_fwd": 15,
-    "rope_fwd": 19,
-    "kv_cache_fwd": 18,
-    "rms_norm_fwd": 19,
-    "add_bwd": 14,
-    "flash_attention_bwd": 15,
-    "softmax_bwd": 12,
-    "rope_bwd": 14,
-    "kv_cache_bwd": 13,
-    "rms_norm_bwd": 12,
+    "add_fwd": 25,
+    "flash_attention_fwd": 21,
+    "softmax_fwd": 19,
+    "rope_fwd": 23,
+    "kv_cache_fwd": 22,
+    "rms_norm_fwd": 23,
+    "add_bwd": 16,
+    "flash_attention_bwd": 17,
+    "softmax_bwd": 14,
+    "rope_bwd": 16,
+    "kv_cache_bwd": 17,
+    "rms_norm_bwd": 15,
 }
 
 
@@ -60,23 +60,21 @@ def test_the_column_totals_match_the_analysed_table() -> None:
     assert sum(counted.values()) == MARKED
 
 
-def test_fifteen_rows_claim_no_column_and_the_rest_claim_some() -> None:
+def test_thirteen_rows_claim_no_column_and_the_rest_claim_some() -> None:
     empty = [feature.id for feature in FEATURES if not marks.columns_of(feature.id)]
-    # F7 postdates the table the clause drew up, so it is a sixteenth empty row
-    # with its own reason rather than one of the fifteen the analysis recorded.
-    assert len(empty) == 16
+    # F7 postdates the table the clause drew up, so it is the first empty row with
+    # its own reason rather than one of the rows the analysis recorded as such.
+    # E1 and E2 left this list when they became rows over all twelve columns,
+    # and A7 when it became a row of its own.
+    assert len(empty) == 12
     assert "F7" in empty
     assert set(empty) - {"F7"} == {
-        "A7",
         "A12",
         "B1",
         "B2",
         "B3",
         "C2",
         "D5",
-        "D6",
-        "E1",
-        "E2",
         "E3",
         "E6",
         "E7",

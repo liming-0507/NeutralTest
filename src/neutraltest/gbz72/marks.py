@@ -86,7 +86,15 @@ APPLICABILITY: dict[str, tuple[str, ...]] = {
     "A4": ("rope_fwd",),
     "A5": ("kv_cache_fwd",),
     "A6": ("add_fwd", "flash_attention_fwd", "softmax_fwd", "rope_fwd"),
-    "A7": (),
+    "A7": (
+        "add_fwd",
+        "softmax_fwd",
+        "rope_fwd",
+        "kv_cache_fwd",
+        "rms_norm_fwd",
+        "kv_cache_bwd",
+        "rms_norm_bwd",
+    ),
     "A8": ("rope_fwd",),
     "A9": (
         "add_fwd",
@@ -215,9 +223,28 @@ APPLICABILITY: dict[str, tuple[str, ...]] = {
     "D3": ("rope_fwd", "rope_bwd"),
     "D4": ("add_fwd", "flash_attention_fwd", "softmax_fwd", "rope_fwd"),
     "D5": (),
-    "D6": (),
-    "E1": (),
-    "E2": (),
+    #: Error handling is exercised where the kernel is handed values to refuse.
+    #: A backward is handed derivatives: nothing in its call is wrong only by
+    #: being the wrong shape, so the forward column of the same operator takes
+    #: the refusal and the backward column records why it carries none.  The add
+    #: is left to the framework's own contract (D1's arity check) because its
+    #: kernels cast and broadcast whatever width or type they are given.  The
+    #: cache read keeps the row: though it is the backward column, its kernel
+    #: reads a slot list and indexes with it, and it refuses both.
+    "D6": (
+        "flash_attention_fwd",
+        "softmax_fwd",
+        "rope_fwd",
+        "kv_cache_fwd",
+        "kv_cache_bwd",
+        "rms_norm_fwd",
+    ),
+    #: Determinism is a property of every column: each is a function of its
+    #: arguments, and E1 is what establishes that rather than assuming it.
+    "E1": TABLE_ORDER,
+    #: Likewise the random-number behaviour: a column either draws or is shown
+    #: not to, and E2 states which for every column.
+    "E2": TABLE_ORDER,
     "E3": (),
     "E4": ("flash_attention_fwd", "rope_fwd", "flash_attention_bwd", "rope_bwd"),
     "E5": ("rope_fwd",),
@@ -274,7 +301,7 @@ APPLICABILITY: dict[str, tuple[str, ...]] = {
 }
 
 #: Number of marked (feature, column) pairs; the coverage denominator.
-MARKED = 191
+MARKED = 228
 
 
 def columns_of(feature_id: str) -> tuple[str, ...]:

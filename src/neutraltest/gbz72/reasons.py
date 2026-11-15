@@ -7,9 +7,16 @@ than silently dropped, exactly as the part 7.3 side discloses its own
 not-applicable cells.
 
 A reason is written once per feature, not per pair, because a row fails to apply
-for one structural reason across all the columns it misses.  Fifteen features
+for one structural reason across all the columns it misses.  Twelve features
 are not applied to any of the twelve columns; for those the same text is the
 reason for the whole row and is what :func:`reason_for` returns for every column.
+
+A row that is exercised on every column has no entry at all -- E1 and E2, which
+establish determinism and the absence of a random source for all twelve. Their
+verdict lives in the item script rather than in this table, so keeping a
+"not applicable" sentence here would be a second, contradicting account of the
+same cell.
+
 
 Every entry is a pair -- a :data:`Cause` and the sentence explaining it -- because
 a reader of the matrix needs the class first and the argument second.  "Not
@@ -109,6 +116,13 @@ def _c(cause: str, text: str) -> Cause:
 
 #: Reasons for features that apply to some columns but not others.
 PARTIAL_REASONS: dict[str, Cause] = {
+    "D6": _c(
+        COLUMN_LACKS_OPERAND,
+        "the kernels of this column broadcast every row, axis and floating type they are "
+        "handed, so no operand of theirs is an illegal input to the column itself; what an "
+        "add does with a row of the wrong length is a floating-point answer, not a refusal, "
+        "and the interface it carries is D1's to hold to account for arity and keyword names",
+    ),
     "A2": _c(
         COLUMN_LACKS_CAPABILITY,
         "the row stores a quantised copy and reloads it, which needs a column with "
@@ -133,6 +147,15 @@ PARTIAL_REASONS: dict[str, Cause] = {
         "the row poisons one element and watches where the non-finite value spreads; "
         "the cache stores what it is given rather than propagating it, and the "
         "normalisation's single reduction is already covered by A1",
+    ),
+    "A7": _c(
+        COLUMN_LACKS_CAPABILITY,
+        "the row reads the sign of a zero the operator produced on purpose; attention "
+        "under zero queries and keys returns the cancellation of signed zeros, which "
+        "IEEE-754 fixes at +0, and the residual's gradients are exact copies, so no "
+        "zero in either column can carry a sign only the kernel decides. The forward "
+        "add and the six columns whose zero survives a multiply, a store or a positive "
+        "scale are marked and measured",
     ),
     "A8": _c(
         COLUMN_LACKS_OPERAND,
@@ -224,12 +247,6 @@ PARTIAL_REASONS: dict[str, Cause] = {
 
 #: Reasons for features the clause does not apply to any of the twelve columns.
 ROW_REASONS: dict[str, Cause] = {
-    "A7": _c(
-        COLUMN_LACKS_CAPABILITY,
-        "the twelve columns are float32 kernels over IEEE values and none of them "
-        "exposes a signed-zero contract beyond the bit-for-bit comparison A1 already "
-        "performs on its outputs",
-    ),
     "A12": _c(
         NOT_IN_STANDARD,
         "the differentiable column of the text is the grouped matrix, and part 7.2 has "
@@ -261,20 +278,6 @@ ROW_REASONS: dict[str, Cause] = {
         COLUMN_LACKS_CAPABILITY,
         "each column has a single interface in this framework, so there is no previous "
         "version to compare against",
-    ),
-    "D6": _c(
-        COVERED_ELSEWHERE,
-        "the illegal-input contract is exercised by D1 (arity and keyword names) and B6 "
-        "(a shape the operator refuses); a separate row would repeat them",
-    ),
-    "E1": _c(
-        COLUMN_LACKS_CAPABILITY,
-        "every column is deterministic by construction -- no atomics, no unordered "
-        "reduction -- so the row would re-run A1 on the same inputs",
-    ),
-    "E2": _c(
-        COLUMN_LACKS_CAPABILITY,
-        "no column draws a random number; the harness seeds the inputs and the cotangents",
     ),
     "E3": _c(
         NEEDS_DEVICE,

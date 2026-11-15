@@ -224,3 +224,86 @@ def test_e6_reports_a_second_device_that_disagrees(monkeypatch: pytest.MonkeyPat
     ctx.op = replace(op, forward=drifting)
     with pytest.raises(AssertionError, match="differs"):
         e6.run(ctx)
+
+
+# -- A9: the mixed-precision path, both shapes of it --------------------
+@pytest.mark.parametrize("op_name", ["grouped_gemm", "layer_norm", "gelu", "relu", "amax"])
+def test_a9_runs_on_every_operator_it_claims(op_name: str) -> None:
+    """No operator is declared not applicable: each one has a mixed-precision path."""
+    from neutraltest.gbz73.items import a9
+
+    a9.run(_context("A9", op_name))
+
+
+def test_a9_reads_a_single_operand_through_the_fp8_grid() -> None:
+    """The operand that reaches GELU must have crossed the FP8 grid.
+
+    A row that hands the kernel its untouched float32 input measures the
+    kernel, not the storage split the clause asks about.  Here the operator
+    ignores the width it is given -- every call is rounded to FP8 -- so
+    "storing the input wider" cannot change the answer, and the row must say
+    so rather than pass.
+    """
+    from dataclasses import replace
+
+    from neutraltest.gbz73.items import a9
+
+    ctx = _context("A9", "gelu")
+    real = ctx.op.forward
+
+    def ignores_the_width(x, **kwargs):
+        flattened = x.abs().max().clamp_min(1e-12)
+        return real(quant.roundtrip(x, flattened / quant.max_finite(ctx.fp8_dtype)), **kwargs)
+
+    ctx.op = replace(ctx.op, forward=ignores_the_width)
+    with pytest.raises(AssertionError, match="did not reduce the error"):
+        a9.run(ctx)
+
+
+def test_a9_reports_one_operand_worse_than_both() -> None:
+    """Two operands: leaving one in float must not be worse than quantising both.
+
+    A kernel that quietly rounds the wide operand down to the grid itself has
+    paid two roundings while claiming one -- exactly what this branch exists to
+    catch.  The mixed call hands layer_norm a weight that is already on the
+    *global* grid while the fully quantised call hands it one that is not, and
+    that is how the stub tells them apart without assuming a call order.
+    """
+    from dataclasses import replace
+
+    from neutraltest.gbz73.items import a9
+
+    ctx = _context("A9", "layer_norm")
+    real = ctx.op.forward
+    args, kwargs = ctx.inputs(torch.float32)
+    _, _, global_scale = ctx.quantise_inputs(args, kwargs)
+
+    def on_global_grid(tensor: torch.Tensor) -> bool:
+        return torch.equal(tensor, quant.roundtrip(tensor, global_scale, ctx.fp8_dtype))
+
+    assert not on_global_grid(args[1]), "the wide weight must start off the grid"
+    seen: list[str] = []
+
+    def rounds_the_wide_operand(x, weight, bias, **kwargs):
+        if weight.dtype == torch.float32:
+            if on_global_grid(weight):
+                # The fully quantised call arrives with every operand already
+                # round-tripped, so there is nothing wide left to round down.
+                seen.append("both")
+            else:
+                seen.append("mixed")
+                weight = quant.roundtrip(
+                    weight, quant.dynamic_scale(weight, ctx.fp8_dtype), ctx.fp8_dtype
+                )
+                # The kernel rounds the wide operand to its own grid; scaling
+                # the result back up models a kernel that pays the rounding and
+                # then normalises by the full-range scale, which is the shape a
+                # real double-rounding takes.  Without it the weight's peak is
+                # unchanged and the row would be right to call it harmless.
+                weight = weight * 1.03
+        return real(x, weight, bias, **kwargs)
+
+    ctx.op = replace(ctx.op, forward=rounds_the_wide_operand)
+    with pytest.raises(AssertionError, match="worse than quantising both"):
+        a9.run(ctx)
+    assert sorted(seen) == ["both", "mixed"], f"unexpected calls {seen}"

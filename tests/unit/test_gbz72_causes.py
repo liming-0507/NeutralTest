@@ -111,7 +111,10 @@ def test_the_catalogue_command_emits_the_same_data() -> None:
         ("A2", reasons.COLUMN_LACKS_CAPABILITY),
         ("B6", reasons.COLUMN_LACKS_OPERAND),
         ("F3", reasons.NEEDS_DEVICE),
-        ("D6", reasons.COVERED_ELSEWHERE),
+        # D6 grew a script of its own and is now exercised on the columns whose
+        # kernels refuse something; the forward add is the column that casts and
+        # broadcasts whatever it is handed, and stands for the class.
+        ("D6", reasons.COLUMN_LACKS_OPERAND),
         ("F7", reasons.NOT_IN_STANDARD),
     ],
 )
