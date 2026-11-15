@@ -74,6 +74,21 @@ def test_a_seed_makes_a_draw_repeatable() -> None:
     assert torch.equal(first, second)
 
 
+def test_draw_many_asks_for_independent_samples() -> None:
+    """The oracle's count is over draws, so each call must differ.
+
+    A harness that accepts the draw index's seed and drops it asks for the same
+    sample every time; the frequency then collapses onto one token and every
+    device cell fails against a *correct* kernel. That is how this bug reached
+    hardware, so the property is pinned here rather than left to the device run.
+    """
+    logits = torch.tensor([[0.2, 0.3, 0.5]])
+    picks = oracle.draw_many(ops.draw, logits, draws=64, seed=5)
+    # One draw of every row per call, flattened: (draws, rows) for a 1-row input.
+    assert picks.shape == (64, 1)
+    assert picks.unique().numel() > 1
+
+
 # -------------------------------------------------------------------- the oracle
 
 
