@@ -42,14 +42,21 @@ def _device_draw(nt, seed: int):
 
 
 def draw_on(nt, logits, *, num_samples: int = 1, **kwargs):
-    """Ask the backend under test for draws of *logits*."""
+    """Ask the backend under test for draws of *logits*.
+
+    A backend that publishes a sampling primitive answers here. None does yet,
+    so the filter runs on the device -- exercising device softmax, cumulative
+    sums and top-k -- and the draw itself comes back to the host, because a
+    device multinomial needs a device generator, which is the one piece the
+    framework cannot supply for an unknown backend without guessing its API.
+    That split is disclosed: the cell checks the distribution the *filters*
+    induce, not the device RNG's uniformity.
+    """
     kernel = getattr(nt.backend, "scale_probabilities", None)
-    if kernel is None:
-        # The backend exposes no sampling primitive: fall back to the reference
-        # on the device's tensors, which still exercises device RNG, dtypes and
-        # any device-side softmax the filters rely on.
-        return reference_draw(logits, num_samples=num_samples, **kwargs)
-    return kernel(logits, num_samples=num_samples, **kwargs)
+    if kernel is not None:
+        return kernel(logits, num_samples=num_samples, **kwargs)
+    on_host = logits.to("cpu")
+    return reference_draw(on_host, num_samples=num_samples, **kwargs)
 
 
 @pytest.mark.nt_family("sampling")
