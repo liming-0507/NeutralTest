@@ -57,3 +57,68 @@ plain `pytest` runs both; pass `--clause 73` to collect only the 7.3 rows.
 summary, `-` the applicability table does not mark this pair and the reason is
 printed, `K` a registered known issue reproduced, `·` the cell was not part of
 this run (a narrowed `--ops` or `--features`).
+
+## The seventh operator: sampling
+
+Clause 7.2 names seven inference operators. Six are columns of the table above.
+The seventh — Top-K / Top-P sampling — is not, and the reason is structural
+rather than editorial:
+
+> **A sampler has no backward.** Sampling draws from a distribution; the draw is
+> not differentiable with respect to the logits, and no framework ships a
+> gradient for it. A backward column would not be "untested", it would be
+> meaningless.
+
+So the sampler gets its own forward-only matrix (`gbz72/sampling/`) instead of
+two extra columns that could never pass. It keeps the same bookkeeping — the
+same row ids from the feature catalogue, the same `P/F/-/·` vocabulary, the same
+disclosure of what was not exercised — so the two matrices read side by side.
+
+### The oracle is a distribution, not a draw
+
+Every other column compares tensors element by element. Two correct samplers
+disagree on any individual draw, so a fixed seed does not rescue a per-element
+comparison: it makes the output *repeatable*, not *equal to the reference*.
+
+The claim is therefore about the distribution the device draws from:
+
+| Piece | What it is |
+| --- | --- |
+| draws per cell | 4096 (`oracle.DRAWS`) |
+| measured | empirical frequency of each token, per row |
+| expected | `filter_logits(...)` → `softmax`, in `float64` |
+| allowed drift | `clamp(6·sqrt(p(1−p)/N), min 0.01)` per token |
+
+The floor of 0.01 matters for the tokens a filter erases: with `p = 0` the
+textbook interval collapses to zero, and a single stray draw would fail the
+cell. The floor gives those tokens the same room a rare token gets.
+
+This catches both directions of the obvious mistakes: a generator that returns
+the argmax puts all the mass on one token, and a generator that forgets the
+Top-P cutoff leaves mass in the tail that should be exactly zero.
+
+### The twelve rows and five settings
+
+`items.py` holds twelve rows — reference agreement, overflow saturation,
+subnormal probabilities, index dtype and range, NaN/Inf disclosure, signed zero,
+cutoff accumulation, degenerate shapes, irregular shapes, output dtype,
+parameter bounds, and whether each setting takes effect. Each row is checked
+under five settings: `plain`, `top_k=4`, `top_p=0.75`, both together, and
+`temperature=0.7`.
+
+Rows whose claim is about the filter itself are checked once, on the CPU; the
+distribution claim is the one every backend is held to. On the CPU the kernel
+*is* the reference, so that cell reduces to a consistency check — it still runs,
+because an oracle that rejects truth would otherwise only be discovered on
+hardware.
+
+```
+neutraltest sampler
+neutraltest sampler --json
+neutraltest sampler --backend cpu --draws 8192
+python -m pytest src/neutraltest/conformance/test_gbz72_sampling.py -q
+```
+
+A sampler cell reports `P` when no token was drawn more often than its reference
+mass allows for the sample size, and `F` with the worst offending token, its
+measured frequency, its reference mass and the allowed drift.

@@ -18,6 +18,11 @@ Three verbs, deliberately few:
     The FP8 clause matrix: every row of the standard against every operator in
     the catalogue, printed as a table.  ``--json`` for the machine-readable form.
 
+``sampler``
+    The seventh part 7.2 operator, Top-K / Top-P sampling, which has a
+    forward-only matrix of its own because a sampler has no backward pass to
+    test.  ``--json`` for the machine-readable form.
+
 ``sdk``
     Where this environment sits against the SDK release it claims to run, and
     against PyTorch's own published support window.
@@ -56,6 +61,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     if raw[:1] == ["gbz73"]:
         args = _build_parser().parse_args(raw)
         return _gbz73(args)
+    if raw[:1] == ["sampler"]:
+        args = _build_parser().parse_args(raw)
+        return _sampler(args)
     if raw[:1] == ["sdk"]:
         args = _build_parser().parse_args(raw)
         return _sdk(args)
@@ -146,6 +154,26 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         dest="fail_on_fixed",
         help="exit 1 when a registered deviation no longer reproduces",
+    )
+
+    sampling = subparsers.add_parser(
+        "sampler",
+        help="run the part 7.2 sampling matrix (Top-K / Top-P, forward only)",
+        description="Run the sampler's own matrix: twelve rows, one direction. The operator "
+        "has no backward pass, so it is checked against a distribution instead of "
+        "against the other six columns of the part 7.2 table.",
+    )
+    _add_backend_arguments(sampling)
+    _add_sdk_arguments(sampling)
+    sampling.add_argument(
+        "--json", action="store_true", help="print the report as JSON instead of a table"
+    )
+    sampling.add_argument(
+        "--draws",
+        type=int,
+        default=4096,
+        metavar="N",
+        help="draws per cell for the distribution check (default 4096)",
     )
 
     matrix = subparsers.add_parser(
@@ -546,3 +574,29 @@ def _first_line(exc: BaseException) -> str:
 
 if __name__ == "__main__":  # pragma: no cover
     raise SystemExit(main())
+
+
+def _sampler(args: argparse.Namespace) -> int:
+    from .gbz72.sampling import cli as sampler_cli
+
+    catalog = discover()
+    try:
+        selected = resolve_spec(args.backend, catalog)
+    except BackendNotFound as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    backends = [b for b in selected if b.is_available()]
+    if not backends:
+        print(
+            f"error: no backend selected is available ({', '.join(b.name for b in selected)})",
+            file=sys.stderr,
+        )
+        return 2
+    if args.draws < 1:
+        print("error: --draws must be at least 1", file=sys.stderr)
+        return 2
+    status = 0
+    for backend in backends:
+        if status == 0:
+            status = sampler_cli.main(backend, as_json=args.json, draws=args.draws)
+    return status

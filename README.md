@@ -357,6 +357,7 @@ itself: [docs/backends.md](docs/backends.md).
 | `neutraltest test [pytest args]` | runs the bundled suite (shipped inside the package); unknown arguments are forwarded to pytest |
 | `neutraltest known [--verify]` | list registered deviations, or re-run them to see whether they still reproduce |
 | `neutraltest sdk [--sdk FILE]` | measure this environment against its SDK release and against PyTorch's published support window |
+| `neutraltest sampler [--json] [--draws N]` | the seventh part 7.2 operator: Top-K / Top-P sampling, a forward-only matrix judged as a distribution |
 
 `doctor` is the fastest way to tell "the device is not there" from "the device
 is there and computes the wrong thing".

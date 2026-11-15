@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+### Added — the part 7.2 sampler
+
+- Clause 7.2 names seven inference operators; six are columns of the matrix. The
+  seventh, Top-K / Top-P sampling, now has a forward-only matrix of its own
+  (`gbz72/sampling/`) with twelve rows — reference agreement, overflow,
+  subnormals, index dtype and range, NaN/Inf disclosure, signed zero, cutoff
+  accumulation, degenerate and irregular shapes, output dtype, parameter bounds,
+  and whether each knob takes effect — each checked under five settings.
+- The sampler is not a thirteenth column because a sampler has no backward: the
+  draw is not differentiable in the logits, so a backward cell could never pass.
+- The judgement is a distribution, not a draw. Two correct samplers disagree on
+  any individual draw, so a fixed seed makes a run repeatable, not equal. Cells
+  compare the measured token frequencies over 4096 draws against the reference
+  masses, with a per-token allowance of `6·sqrt(p(1−p)/N)` floored at `0.01` so
+  that a token a filter erases is not held to a zero-width interval.
+- `neutraltest sampler [--json] [--draws N]`, and 60 conformance cells in
+  `test_gbz72_sampling.py`. The matrix is shown to go red — 48 of 60 cells — on a
+  generator that ignores the filters, so a green run is evidence rather than a
+  tautology.
+
 ### Added — SDK version matching
 
 - `neutraltest sdk [--sdk FILE] [--json]` reports where this interpreter sits
