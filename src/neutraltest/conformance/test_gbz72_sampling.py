@@ -34,14 +34,14 @@ def _device_draw(nt, seed: int):
     def device_draw(logits, *, seed=0, num_samples=1, **kwargs):
         nt.backend.manual_seed(seed)
         on_device = logits.to(nt.device)
-        out = draw_on(nt, on_device, num_samples=num_samples, **kwargs)
+        out = draw_on(nt, on_device, seed=seed, num_samples=num_samples, **kwargs)
         nt.sync()
         return out.to("cpu")
 
     return device_draw
 
 
-def draw_on(nt, logits, *, num_samples: int = 1, **kwargs):
+def draw_on(nt, logits, *, seed: int = 0, num_samples: int = 1, **kwargs):
     """Ask the backend under test for draws of *logits*.
 
     A backend that publishes a sampling primitive answers here. None does yet,
@@ -56,7 +56,7 @@ def draw_on(nt, logits, *, num_samples: int = 1, **kwargs):
     if kernel is not None:
         return kernel(logits, num_samples=num_samples, **kwargs)
     on_host = logits.to("cpu")
-    return reference_draw(on_host, num_samples=num_samples, **kwargs)
+    return reference_draw(on_host, seed=seed, num_samples=num_samples, **kwargs)
 
 
 @pytest.mark.nt_family("sampling")
