@@ -46,7 +46,12 @@ DISTINCT = 3
 
 
 def run(ctx: Any) -> None:
-    args, kwargs = make_inputs(family=ctx.family, seed=ctx.seed, variant=ctx.variant)
+    # The samples are built on the host, so they travel to the device here: a
+    # gradient is taken by re-running the call, and that path does not move the
+    # arguments the way a plain call does.
+    args, kwargs = on_device(
+        ctx, *make_inputs(family=ctx.family, seed=ctx.seed, variant=ctx.variant)
+    )
     serial = _answer(ctx, args, kwargs)
     if _has_streams(ctx):
         _streams(ctx, args, kwargs, serial)
