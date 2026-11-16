@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+from typing import Any
 
 import torch
 
@@ -150,6 +151,23 @@ class PrivateUse1Backend(Backend):
                 device = current()
                 return device is not None and str(device.type) == device_type
         return False
+
+    def stream_context(self, stream: Any) -> contextlib.AbstractContextManager[Any]:
+        """``torch.<registered name>.stream()``, which is where the streams live.
+
+        The device type may be the placeholder (no rename) or the registered
+        name, and the vendor module is keyed by the registered name in both
+        cases; the base class would ask for ``torch.<placeholder>``, which holds
+        no stream entry point.
+        """
+        described = getattr(stream, "device", None)
+        name = str(getattr(described, "type", ""))
+        for candidate in (name, self.device_type):
+            module = getattr(torch, candidate, None) if candidate else None
+            factory = getattr(module, "stream", None)
+            if callable(factory):
+                return factory(stream)
+        return contextlib.nullcontext()
 
     def device_count(self) -> int:
         module = getattr(torch, self.device_type, None)

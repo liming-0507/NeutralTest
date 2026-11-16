@@ -227,6 +227,24 @@ class Backend(ABC):
             raise NotImplementedError(f"{self.name}: this backend does not expose streams")
         return self._module().stream(stream)
 
+    def stream_context(self, stream: Any) -> contextlib.AbstractContextManager[Any]:
+        """Context manager that makes *stream* current for the block.
+
+        ``torch.<device_type>.stream()`` is the usual spelling, but a mechanism
+        reached through ``privateuse1`` keeps its streams on the module the
+        vendor registered under its own name, not on the placeholder -- so the
+        default asks for ``torch.<device_type>`` and a mechanism whose device
+        type is an alias resolves the real one here.  A backend that has no
+        streams (or no such entry point) gets an inert context manager, which
+        makes the caller's fallback ordering -- explicit events plus
+        synchronisation -- the behaviour it actually gets.
+        """
+        module = self._module()
+        factory = getattr(module, "stream", None) if module is not None else None
+        if not callable(factory):
+            return contextlib.nullcontext()
+        return factory(stream)
+
     # ------------------------------------------------------------------ probing
 
     @cache  # noqa: B019 - process-wide cache is intended
