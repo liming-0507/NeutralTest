@@ -28,5 +28,9 @@ def test_gbz72(feature, column, nt) -> None:
     result = runner.run_column(feature, column, nt.backend, seed=nt.policy.seed)
     if result.outcome == "na":
         pytest.skip(f"{feature.id}/{column.name}: {result.detail}")
+    if result.outcome == "known":
+        # The cell ran and failed in a way the registry explains: still visible,
+        # still counted, and an unexpected pass shows up as an xpass.
+        pytest.xfail(result.detail)
     if result.outcome != "passed":
         pytest.fail(f"{feature.id}/{column.name}: {result.detail}", pytrace=False)
