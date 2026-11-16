@@ -298,8 +298,15 @@ class InferenceContext:
         """The analytic Jacobian of this column on a caller's own arguments."""
         forward, jacobian = self._implementation()
         directional, directional_kwargs = self.project(_cast(args, dtype), kwargs)
-        cotangent = _cotangent(forward(*directional, **directional_kwargs), dtype)
-        jac = jacobian(*directional, **directional_kwargs)
+        # The same move the kernel call makes.  A float view of a device tensor
+        # stays on the device while the integers beside it keep whatever device
+        # they arrived with -- and a Jacobian runs the operator, so unmatched
+        # arguments are the "<device>:0 and cpu" refusal.  Left here it would
+        # read as a broken Jacobian rather than as an argument left behind.
+        moved = tuple(self.on_device(a) for a in directional)
+        moved_kwargs = {k: self.on_device(v) for k, v in directional_kwargs.items()}
+        cotangent = _cotangent(forward(*moved, **moved_kwargs), dtype)
+        jac = jacobian(*moved, **moved_kwargs)
         return [g for g in jac(cotangent) if g is not None], _prepared_shapes(directional)
 
     def autograd_gradients(
