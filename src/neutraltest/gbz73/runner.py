@@ -17,6 +17,15 @@ from .ops import OPS, Op
 SYMBOLS = {"passed": "P", "failed": "F", "na": "-", "known": "K", "not_run": "\u00b7"}
 VERDICTS = ("passed", "failed", "na", "known")
 
+#: The glyph for a pass on a cell the standard's text does not ask for. A cell
+#: the clause names and we measured is evidence; a cell it does not name and we
+#: measured anyway is diligence, and the two should not look the same in a table
+#: that is quoted as coverage.
+OFF_STANDARD = "p"
+
+#: What :data:`OFF_STANDARD` means, printed under every matrix that can show it.
+OFF_STANDARD_LEGEND = f"{OFF_STANDARD} = passed, though the clause does not ask this column to"
+
 
 @dataclass(slots=True)
 class Result:
@@ -163,6 +172,34 @@ def _clip(text: str, width: int) -> str:
     return text if len(text) <= width else text[: width - 1] + "…"
 
 
+def _mark(feature: Feature, op: str, result: Result | None) -> str:
+    """The glyph for one cell, telling a pass the clause asked for from one it did not."""
+    if result is None:
+        return SYMBOLS["not_run"]
+    if result.outcome == "passed" and not feature.covered_by_standard(op):
+        return OFF_STANDARD
+    return SYMBOLS.get(result.outcome, "?")
+
+
+def off_standard_passes(report: Report) -> int:
+    """Cells that passed although the standard's text asks nothing of them.
+
+    They count as passes, exactly as before -- the clause does not make them
+    worth less -- but they are counted separately, because a table whose passes
+    are all off-standard is a table that measured something other than what the
+    clause asked for.
+    """
+    features = {feature.id: feature for feature in FEATURES}
+    total = 0
+    for result in report.results:
+        if result.outcome != "passed":
+            continue
+        feature = features.get(result.feature)
+        if feature is not None and not feature.covered_by_standard(result.op):
+            total += 1
+    return total
+
+
 def render_matrix(report: Report, *, ops: tuple[str, ...] = COLUMNS, width: int = 34) -> str:
     """The coverage matrix: our results beside the coverage the text declares."""
     header = f"{'id':<4} {'tier':<12} {'feature':<{width}} {'text':<6} " + " ".join(
@@ -173,14 +210,18 @@ def render_matrix(report: Report, *, ops: tuple[str, ...] = COLUMNS, width: int 
         cells = []
         for op in ops:
             result = report.cell(feature.id, op)
-            cells.append(
-                f"{SYMBOLS.get(result.outcome, '?'):>6}" if result else f"{SYMBOLS['not_run']:>6}"
-            )
-        bits = feature.bits[: len(ops)] if len(ops) <= len(COLUMNS) else feature.bits
+            cells.append(f"{_mark(feature, op, result):>6}")
+        # The coverage the text declares for exactly the operators shown, so that a
+        # narrowed run's bit string still lines up with its cells.
+        bits = "".join(
+            "1" if feature.covered_by_standard(op) else "0" for op in ops if op in COLUMNS
+        ) or "-" * len(ops)
         lines.append(
             f"{feature.id:<4} {feature.tier:<12} {_clip(feature.title, width):<{width}} {bits:<6} "
             + " ".join(cells)
         )
+    lines.append("-" * len(header))
+    lines.append(OFF_STANDARD_LEGEND)
     return "\n".join(lines)
 
 
@@ -201,6 +242,7 @@ def render_summary(report: Report) -> str:
             lines.append(line)
     for result in report.failed[:10]:
         lines.append(f"  FAIL {result.feature}/{result.op}: {_clip(result.detail, 120)}")
+    lines.append(f"off-standard passes: {off_standard_passes(report)} cell(s)")
     return "\n".join(lines)
 
 

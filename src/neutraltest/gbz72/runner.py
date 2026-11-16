@@ -24,6 +24,15 @@ from . import marks, reasons
 SYMBOLS = {"passed": "P", "failed": "F", "na": "-", "known": "K", "not_run": "·"}
 VERDICTS = ("passed", "failed", "na", "known")
 
+#: The glyph for a pass on a pair the applicability table does not mark: the row
+#: runs, the result is real, but the clause does not ask this column for it. It
+#: is a pass and counts as one; it is spelled differently so that a table quoted
+#: as coverage does not grow cells nobody claimed.
+OFF_TABLE = "p"
+
+#: What :data:`OFF_TABLE` means, printed under every matrix that can show it.
+OFF_TABLE_LEGEND = f"{OFF_TABLE} = passed, though the clause does not ask this column to"
+
 
 @dataclass(slots=True)
 class Result:
@@ -183,8 +192,30 @@ def run_all(
     return report
 
 
-def _symbol(result: Result | None) -> str:
-    return SYMBOLS["not_run"] if result is None else SYMBOLS[result.outcome]
+def _symbol(result: Result | None, feature: Feature | None = None) -> str:
+    if result is None:
+        return SYMBOLS["not_run"]
+    if (
+        result.outcome == "passed"
+        and feature is not None
+        and not marks.is_marked(feature.id, result.column)
+    ):
+        return OFF_TABLE
+    return SYMBOLS.get(result.outcome, "?")
+
+
+def off_table_passes(report: Report) -> int:
+    """Cells that passed although the applicability table leaves the pair unmarked.
+
+    They are passes, and every count below still counts them as passes; this is a
+    second reading of the same run, for the one thing the counts cannot say: how
+    much of what passed was asked for.
+    """
+    return sum(
+        1
+        for result in report.results
+        if result.outcome == "passed" and not marks.is_marked(result.feature, result.column)
+    )
 
 
 def _clip(text: str, width: int) -> str:
@@ -202,21 +233,38 @@ def _table_columns() -> tuple[Column, ...]:
     return tuple(BY_NAME[name] for name in marks.TABLE_ORDER)
 
 
+def asks(feature: Feature, column: Column) -> bool:
+    """Whether the standard's text states a requirement for this (row, column).
+
+    Read from the column, not from the row: ``Column.standard_covers`` is the
+    transcription of the clause, and the applicability table above is the
+    judgement of what to run. They agree today -- ``tests/unit/test_gbz72_columns_bits.py``
+    holds them to it -- but they answer different questions, and the matrix has
+    to keep the answers apart to be able to print both.
+    """
+    return column.standard_covers(feature.id)
+
+
 def render_matrix(
     report: Report, *, columns: tuple[Column, ...] | None = None, width: int = 34
 ) -> str:
     """The feature × column grid, one row per catalogue entry."""
     columns = _table_columns() if columns is None else columns
-    header = f"{'id':<4} {'tier':<12} {'feature':<{width}} {'applied':<12} " + " ".join(
+    header = f"{'id':<4} {'tier':<12} {'feature':<{width}} {'text':<{len(columns)}} " + " ".join(
         f"{c.name[:6]:>6}" for c in columns
     )
     lines = [header]
     for feature in FEATURES:
-        cells = " ".join(f"{_symbol(report.cell(feature.id, c.name)):>6}" for c in columns)
+        # The bits are printed for the columns actually shown, so the row of 1/0
+        # lines up with the row of cells under it.
+        bits = "".join("1" if asks(feature, c) else "0" for c in columns)
+        cells = " ".join(f"{_symbol(report.cell(feature.id, c.name), feature):>6}" for c in columns)
         lines.append(
             f"{feature.id:<4} {feature.tier:<12} {_clip(feature.title, width):<{width}} "
-            f"{applied(feature, columns):<12} {cells}"
+            f"{bits:<{len(columns)}} {cells}"
         )
+    lines.append("-" * len(header))
+    lines.append(OFF_TABLE_LEGEND)
     return "\n".join(lines)
 
 
@@ -233,6 +281,7 @@ def render_summary(report: Report) -> str:
         lines.append(f"  {name:<20} passed {passed:>2}/{len(cells):<3} na {na:>2}{suffix}")
     for result in report.failed[:10]:
         lines.append(f"  FAIL {result.feature}/{result.column}: {_clip(result.detail, 120)}")
+    lines.append(f"off-standard passes: {off_table_passes(report)} cell(s)")
     return "\n".join(lines)
 
 
