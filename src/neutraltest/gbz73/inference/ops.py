@@ -96,7 +96,7 @@ def attention_jacobian(
     scores = (q @ k.transpose(-1, -2)) * scale
     if is_causal:
         length = scores.shape[-1]
-        mask = torch.ones(length, length, dtype=torch.bool).tril()
+        mask = torch.ones(length, length, dtype=torch.bool, device=scores.device).tril()
         scores = scores.masked_fill(~mask, float("-inf"))
     weights = scores.softmax(-1)
 
@@ -161,7 +161,7 @@ def kv_write_jacobian(
         grad_k, grad_v = grad
         written_k = grad_k.index_select(0, index)
         written_v = grad_v.index_select(0, index)
-        untouched = torch.ones(rows, dtype=torch.bool)
+        untouched = torch.ones(rows, dtype=torch.bool, device=grad_k.device)
         untouched[index] = False
         return [
             written_k,
@@ -185,8 +185,8 @@ def kv_read_jacobian(
     def vjp(grad: tuple) -> list[torch.Tensor]:
         grad_k, grad_v = grad
         rows, width = cache_k.shape
-        out_k = torch.zeros(rows, width, dtype=grad_k.dtype)
-        out_v = torch.zeros(rows, width, dtype=grad_v.dtype)
+        out_k = torch.zeros(rows, width, dtype=grad_k.dtype, device=grad_k.device)
+        out_v = torch.zeros(rows, width, dtype=grad_v.dtype, device=grad_v.device)
         return [out_k.index_add(0, index, grad_k), out_v.index_add(0, index, grad_v)]
 
     return vjp
@@ -233,7 +233,12 @@ def _rope_angles(
     reference and the kernel from drifting apart.
     """
     half = width // 2
-    inv = torch.exp(-math.log(10000.0) * torch.arange(half, dtype=torch.float64) / half)
+    # The ladder is a constant, so it belongs wherever ``position`` lives: a
+    # reference that runs on the device under test must not multiply an index
+    # tensor by a table left on the host.
+    inv = torch.exp(
+        -math.log(10000.0) * torch.arange(half, dtype=torch.float64, device=position.device) / half
+    )
     angles = position.detach().to(torch.float64)[..., None] * inv
     cos = angles.cos().to(dtype)
     sin = angles.sin().to(dtype)
