@@ -32,7 +32,7 @@ from typing import Any
 
 import torch
 
-from .._support import make_inputs
+from .._support import make_inputs, on_device
 
 ID = "E3"
 COLUMNS = None
@@ -103,8 +103,12 @@ def _threads(ctx: Any, args: Any, kwargs: Any, serial: Any) -> None:
                 f"by up to {_worst(answer, serial):.3e}, so the calls share state"
             )
 
+    # make_inputs builds on the host, so every sample has to travel to the
+    # device here: a device kernel handed one host tensor and one device tensor
+    # refuses the call before any concurrency is involved, which would turn a
+    # missing move into a report about shared state.
     cases = [
-        make_inputs(family=ctx.family, seed=ctx.seed + k, variant=ctx.variant)
+        on_device(ctx, *make_inputs(family=ctx.family, seed=ctx.seed + k, variant=ctx.variant))
         for k in range(DISTINCT)
     ]
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(cases)) as pool:
