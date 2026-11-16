@@ -9,20 +9,23 @@ from neutraltest.gbz72 import items, marks, reasons, runner
 from neutraltest.gbz73.features import FEATURES
 from neutraltest.gbz73.inference.columns import COLUMN_SPECS, Column
 
-MARKED = 228
+#: Derived from the applicability table rather than written out, so widening the
+#: table cannot leave a stale snapshot behind. The tests below still pin the totals
+#: to these values; what changed is only where the values come from.
+MARKED = len(marks.marked_pairs())
 PER_COLUMN = {
-    "add_fwd": 25,
-    "flash_attention_fwd": 21,
-    "softmax_fwd": 19,
-    "rope_fwd": 23,
-    "kv_cache_fwd": 22,
-    "rms_norm_fwd": 23,
-    "add_bwd": 16,
-    "flash_attention_bwd": 17,
-    "softmax_bwd": 14,
-    "rope_bwd": 16,
-    "kv_cache_bwd": 17,
-    "rms_norm_bwd": 15,
+    "add_fwd": 28,
+    "flash_attention_fwd": 24,
+    "softmax_fwd": 22,
+    "rope_fwd": 26,
+    "kv_cache_fwd": 25,
+    "rms_norm_fwd": 26,
+    "add_bwd": 18,
+    "flash_attention_bwd": 19,
+    "softmax_bwd": 16,
+    "rope_bwd": 18,
+    "kv_cache_bwd": 19,
+    "rms_norm_bwd": 17,
 }
 
 
@@ -65,8 +68,9 @@ def test_thirteen_rows_claim_no_column_and_the_rest_claim_some() -> None:
     # F7 postdates the table the clause drew up, so it is the first empty row with
     # its own reason rather than one of the rows the analysis recorded as such.
     # E1 and E2 left this list when they became rows over all twelve columns,
-    # and A7 when it became a row of its own.
-    assert len(empty) == 12
+    # and A7 when it became a row of its own. E3, E6 and E7 followed when the
+    # group's own scripts gained columns; F3 was already a row and stays one.
+    assert len(empty) == 9
     assert "F7" in empty
     assert set(empty) - {"F7"} == {
         "A12",
@@ -75,9 +79,6 @@ def test_thirteen_rows_claim_no_column_and_the_rest_claim_some() -> None:
         "B3",
         "C2",
         "D5",
-        "E3",
-        "E6",
-        "E7",
         "F4",
         "F6",
     }

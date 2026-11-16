@@ -238,10 +238,11 @@ PARTIAL_REASONS: dict[str, Cause] = {
     ),
     "F3": _c(
         NEEDS_DEVICE,
-        "the row times against a second implementation of the same operator; the "
-        "rotation and the normalisation have no hand-written baseline in this framework "
-        "to compare with, and on a CPU the remaining families compare an expression "
-        "with itself",
+        "the row times against a second implementation of the same operator, and on a "
+        "CPU this framework has only one: the rotation and the normalisation have no "
+        "hand-written baseline to compare with, and the remaining families compare an "
+        "expression with itself, so the ratio would be 1.00 by construction. The four "
+        "forward columns the row does claim are timed where two implementations exist.",
     ),
 }
 
@@ -279,21 +280,6 @@ ROW_REASONS: dict[str, Cause] = {
         "each column has a single interface in this framework, so there is no previous "
         "version to compare against",
     ),
-    "E3": _c(
-        NEEDS_DEVICE,
-        "the columns own no streams or concurrency; the backend's scheduling is covered "
-        "by the backend tests rather than by a column-level row",
-    ),
-    "E6": _c(
-        NEEDS_DEVICE,
-        "a single device is the only configuration this framework runs, so there is no "
-        "second card on which to place a column",
-    ),
-    "E7": _c(
-        NEEDS_DEVICE,
-        "the environment row belongs to the deployment, not to a column: the backend "
-        "tests assert the versions and the driver",
-    ),
     "F4": _c(
         COLUMN_LACKS_CAPABILITY,
         "host-side launch cost belongs to the backend rather than to a column, and F1 "
@@ -308,6 +294,23 @@ ROW_REASONS: dict[str, Cause] = {
         NOT_IN_STANDARD,
         "the part 7.2 applicability table has no column for this row: it was drawn up "
         "before the row existed, so no cell is claimed rather than guessed",
+    ),
+    "E3": _c(
+        NOT_IN_STANDARD,
+        "the row runs on the table's columns, and where the backend has no stream API it "
+        "runs on threads instead, so it is never waiting for a device: the pair below is "
+        "a column this row does not claim rather than one waiting on hardware",
+    ),
+    "E6": _c(
+        NOT_IN_STANDARD,
+        "the row asks whether work can arrive in pieces, which a cut of the sample answers "
+        "on one device; a backward column is left out because a shard's gradient for a "
+        "shared operand is a sum over shards, not a join, and that is A12's question",
+    ),
+    "E7": _c(
+        NOT_IN_STANDARD,
+        "the row repeats one deployment's answer on the table's columns, so the pair below "
+        "is a column this row does not claim rather than one waiting on hardware",
     ),
 }
 

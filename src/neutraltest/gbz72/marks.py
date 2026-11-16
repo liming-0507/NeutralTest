@@ -245,11 +245,27 @@ APPLICABILITY: dict[str, tuple[str, ...]] = {
     #: Likewise the random-number behaviour: a column either draws or is shown
     #: not to, and E2 states which for every column.
     "E2": TABLE_ORDER,
-    "E3": (),
+    #: Concurrency is a property of every column too: each is called from several
+    #: callers at once and the answers have to be the ones the same calls give
+    #: alone. The row runs on threads where the backend has no stream API, so it
+    #: is not deferred to a device.
+    "E3": TABLE_ORDER,
     "E4": ("flash_attention_fwd", "rope_fwd", "flash_attention_bwd", "rope_bwd"),
     "E5": ("rope_fwd",),
-    "E6": (),
-    "E7": (),
+    #: One device is enough: the row compares a whole sample against the same
+    #: sample cut in two, and the second device is the literal reading only where
+    #: the backend exposes one.
+    "E6": (
+        "add_fwd",
+        "flash_attention_fwd",
+        "softmax_fwd",
+        "rope_fwd",
+        "kv_cache_fwd",
+        "rms_norm_fwd",
+    ),
+    #: Deployment is a column-level claim after all: what ships is asked to answer
+    #: twice with the same bits, and the environment that answered is recorded.
+    "E7": TABLE_ORDER,
     "F1": (
         "add_fwd",
         "flash_attention_fwd",
@@ -300,9 +316,6 @@ APPLICABILITY: dict[str, tuple[str, ...]] = {
     "F7": (),
 }
 
-#: Number of marked (feature, column) pairs; the coverage denominator.
-MARKED = 228
-
 
 def columns_of(feature_id: str) -> tuple[str, ...]:
     """The columns ``feature_id`` is exercised on (possibly empty)."""
@@ -321,6 +334,11 @@ def marked_pairs() -> tuple[tuple[str, str], ...]:
     return tuple(
         (feature_id, column) for feature_id, columns in APPLICABILITY.items() for column in columns
     )
+
+
+#: Number of marked (feature, column) pairs; the coverage denominator.  Derived,
+#: so widening APPLICABILITY cannot leave a stale total behind.
+MARKED = len(marked_pairs())
 
 
 def unmarked_features() -> tuple[str, ...]:
