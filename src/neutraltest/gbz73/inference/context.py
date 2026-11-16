@@ -420,8 +420,13 @@ def _cotangent(out: Any, dtype: torch.dtype) -> Any:
 
 
 def _one_cotangent(tensor: torch.Tensor, dtype: torch.dtype) -> torch.Tensor:
+    # The values are drawn on the host -- a seeded generator is the only way to
+    # make them reproducible -- but they have to travel with the output they
+    # weight: a device operator handed a host cotangent refuses the call, and a
+    # refusal here reads as a broken Jacobian rather than as a stray move.
     generator = torch.Generator().manual_seed(7)
-    return torch.randn(tensor.shape, generator=generator).to(tensor.dtype).to(dtype) * 0.5
+    drawn = torch.randn(tensor.shape, generator=generator).to(tensor.dtype).to(dtype)
+    return drawn.to(tensor.device) * 0.5
 
 
 def _prepared_shapes(args: tuple) -> list[tuple[int, ...]]:
