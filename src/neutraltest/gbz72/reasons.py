@@ -237,7 +237,7 @@ PARTIAL_REASONS: dict[str, Cause] = {
         "and the other columns work in place",
     ),
     "F3": _c(
-        NEEDS_DEVICE,
+        COLUMN_LACKS_CAPABILITY,
         "the row times against a second implementation of the same operator, and on a "
         "CPU this framework has only one: the rotation and the normalisation have no "
         "hand-written baseline to compare with, and the remaining families compare an "

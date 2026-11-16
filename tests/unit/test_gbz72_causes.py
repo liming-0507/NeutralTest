@@ -68,7 +68,9 @@ def test_the_script_finder_claims_every_class_it_can_still_stand_for() -> None:
     recorded += [entry.cause for entry in reasons.ROW_REASONS.values()]
     assert reasons.NO_SCRIPT not in recorded
     assert reasons.COLUMN_LACKS_CAPABILITY in recorded
-    assert reasons.NEEDS_DEVICE in recorded
+    # NEEDS_DEVICE stays a legal class but no longer answers any cell: the rows
+    # that used to wait for hardware now run on one device, and the one timing
+    # row that cannot is timing against a second implementation, not a device.
     assert reasons.COVERED_ELSEWHERE in recorded
     assert reasons.NOT_IN_STANDARD in recorded
 
@@ -110,7 +112,7 @@ def test_the_catalogue_command_emits_the_same_data() -> None:
     [
         ("A2", reasons.COLUMN_LACKS_CAPABILITY),
         ("B6", reasons.COLUMN_LACKS_OPERAND),
-        ("F3", reasons.NEEDS_DEVICE),
+        ("F3", reasons.COLUMN_LACKS_CAPABILITY),
         # D6 grew a script of its own and is now exercised on the columns whose
         # kernels refuse something; the forward add is the column that casts and
         # broadcasts whatever it is handed, and stands for the class.
