@@ -248,12 +248,6 @@ PARTIAL_REASONS: dict[str, Cause] = {
 
 #: Reasons for features the clause does not apply to any of the twelve columns.
 ROW_REASONS: dict[str, Cause] = {
-    "A12": _c(
-        NOT_IN_STANDARD,
-        "the differentiable column of the text is the grouped matrix, and part 7.2 has "
-        "no such column; the backward columns here are judged by the Jacobian check in "
-        "A1 instead",
-    ),
     "B1": _c(
         NOT_IN_STANDARD,
         "no column of this clause accepts a tensor above 2**31 elements: the operator "
@@ -263,12 +257,6 @@ ROW_REASONS: dict[str, Cause] = {
         COLUMN_LACKS_OPERAND,
         "the only integer operand is the cache's slot list, a row index rather than a "
         "byte offset; B6 exercises its shape and its range",
-    ),
-    "B3": _c(
-        COVERED_ELSEWHERE,
-        "a zero-element or single-element call is refused by the reference's shape "
-        "checks for every column, and asserting that refusal is D1's contract check "
-        "rather than a row of its own",
     ),
     "C2": _c(
         COLUMN_LACKS_CAPABILITY,

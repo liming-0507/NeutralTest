@@ -137,8 +137,9 @@ _SHARED: dict[str, tuple[bool, tuple[str, ...], str]] = {
     ),
     "flash_attention": (
         True,
-        (),
-        "attention cost is quadratic in the sequence length before any masking",
+        ("is_causal", "softmax_scale"),
+        "attention cost is quadratic in the sequence length before any masking; "
+        "the mask and the scale are behaviour, not operands",
     ),
     "kv_cache": (
         False,

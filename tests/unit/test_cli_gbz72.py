@@ -41,7 +41,7 @@ def test_part_7_2_renders_the_twelve_columns_of_the_standard() -> None:
     # The clause line is printed only when more than one clause runs; a single
     # clause is visible in the columns themselves.
     assert "clause:" not in result.stdout
-    assert "declared by the text: 258 cells; exercised by this run: 2" in result.stdout
+    assert "declared by the text: 386 cells; exercised by this run: 2" in result.stdout
     header = next(line for line in result.stdout.splitlines() if line.startswith("id "))
     assert header.count("add_fw") == 1
     assert "rms_no" in header
@@ -66,4 +66,4 @@ def test_both_clauses_run_when_all_is_asked_for() -> None:
     assert "clause: 73" in result.stdout
     assert "clause: 72" in result.stdout
     assert "declared by the text: 49 cells" in result.stdout
-    assert "declared by the text: 258 cells" in result.stdout
+    assert "declared by the text: 386 cells" in result.stdout

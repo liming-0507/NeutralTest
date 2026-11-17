@@ -42,32 +42,56 @@ def test_the_columns_cover_the_twelve_of_the_standard() -> None:
 
 
 @pytest.mark.parametrize("column", marks.TABLE_ORDER)
-def test_a_column_reads_the_table_down(column: str) -> None:
-    """Column bit *i* is the i-th row's bit for this column."""
+def test_a_column_runs_every_cell_the_clause_asks_for(column: str) -> None:
+    """A cell the clause asks for is never left unrun.
+
+    This is deliberately one-way. The bit says *the clause asks for this cell*;
+    the applicability table says *the harness measures this cell*. A clause that
+    asks for something is not optional, so the bit implies the mark -- but the
+    converse does not hold, and must not: a required feature is measured on
+    every column whether or not the clause names it, and forcing those extra
+    runs back into the bits would report coverage the standard never granted.
+    """
     spec = BY_NAME[column]
-    index = marks.TABLE_ORDER.index(column)
-    assert spec.bits == "".join(
-        "1" if marks.is_marked(feature_id, column) else "0" for feature_id in FEATURE_IDS
-    ), column
-    # And bit by bit, so a transposition error names the feature that is wrong.
-    for position, feature_id in enumerate(FEATURE_IDS):
-        assert spec.bits[position] == ("1" if marks.is_marked(feature_id, column) else "0"), (
-            column,
-            feature_id,
-            position,
-            index,
-        )
+    missing = [
+        feature_id
+        for feature_id in FEATURE_IDS
+        if spec.standard_covers(feature_id) and not marks.is_marked(feature_id, column)
+    ]
+    assert not missing, (
+        f"{column}: the clause asks for {missing}, but the harness does not run them"
+    )
 
 
 @pytest.mark.parametrize("feature", FEATURES, ids=lambda feature: feature.id)
-def test_a_row_reads_the_columns_down(feature) -> None:
-    """The other half of the same assertion: row bit *j* is column *j*'s bit."""
-    stated = "".join(
-        "1" if BY_NAME[column].standard_covers(feature.id) else "0" for column in marks.TABLE_ORDER
+def test_a_row_runs_every_cell_the_clause_asks_for(feature) -> None:
+    """The same guard read across a row."""
+    unrun = [
+        column
+        for column in marks.TABLE_ORDER
+        if BY_NAME[column].standard_covers(feature.id) and not marks.is_marked(feature.id, column)
+    ]
+    assert not unrun, (
+        f"{feature.id}: the clause asks for {unrun}, but the harness does not run them"
     )
-    assert stated == "".join(
-        "1" if marks.is_marked(feature.id, column) else "0" for column in marks.TABLE_ORDER
-    ), feature.id
+
+
+def test_the_two_transcriptions_of_the_table_agree() -> None:
+    """``_BITS`` (read down) and ``_STANDARD_TABLE`` (read across) are one text.
+
+    Both are hand copies of the standard's table, and this is what keeps them
+    from drifting apart. It is unrelated to what the harness runs.
+    """
+    from neutraltest.gbz73.inference.columns import _STANDARD_TABLE
+
+    rows = list(_STANDARD_TABLE.values())
+    assert len(rows) == len(FEATURE_IDS)
+    for position, feature_id in enumerate(FEATURE_IDS):
+        assert rows[position] == _STANDARD_TABLE[feature_id]
+    for column in marks.TABLE_ORDER:
+        index = marks.TABLE_ORDER.index(column)
+        read_down = "".join(row[index] if len(row) > index else "0" for row in rows)
+        assert BY_NAME[column].bits == read_down, column
 
 
 def test_the_column_answers_for_itself() -> None:
@@ -104,7 +128,17 @@ def test_a_bit_string_of_the_wrong_length_or_alphabet_is_refused() -> None:
         )
 
 
-def test_the_number_of_stated_cells_is_the_number_the_table_marks() -> None:
+def test_the_number_of_stated_cells_is_how_many_the_table_runs() -> None:
+    """The standard's cells are a subset of the ones the harness measures.
+
+    ``MARKED`` may exceed the stated count: a required feature is measured on
+    every column, including columns the clause never mentions. The guard is that
+    it can never be *fewer* -- that would mean the clause asked for a cell the
+    harness skipped.
+    """
     stated = sum(spec.bits.count("1") for spec in COLUMN_SPECS)
-    assert stated == len(marks.marked_pairs())
-    assert stated == marks.MARKED
+    marked = len(marks.marked_pairs())
+    assert stated <= marked, (
+        f"the clause asks for {stated} cells but the harness only runs {marked}"
+    )
+    assert marked == marks.MARKED

@@ -110,19 +110,30 @@ def test_the_catalogue_command_emits_the_same_data() -> None:
 @pytest.mark.parametrize(
     ("feature_id", "expected"),
     [
-        ("A2", reasons.COLUMN_LACKS_CAPABILITY),
+        # A2 and F3 are now run on every column of the table, so no cell of
+        # theirs is left to a reason class at all; the classes they used to
+        # stand for are checked through the rows below, which still have one.
+        ("A2", None),
+        ("F3", None),
         ("B6", reasons.COLUMN_LACKS_OPERAND),
-        ("F3", reasons.COLUMN_LACKS_CAPABILITY),
-        # D6 grew a script of its own and is now exercised on the columns whose
-        # kernels refuse something; the forward add is the column that casts and
-        # broadcasts whatever it is handed, and stands for the class.
-        ("D6", reasons.COLUMN_LACKS_OPERAND),
+        # D6 is run everywhere too: what used to be disclosed as a column its
+        # kernels cannot refuse anything on is now reported by the row itself.
+        ("D6", None),
         ("F7", reasons.NOT_IN_STANDARD),
     ],
 )
 def test_the_sample_classes_are_the_ones_the_analysis_recorded(
-    feature_id: str, expected: str
+    feature_id: str, expected: str | None
 ) -> None:
+    """Each row's class, read from a cell the row does not run.
+
+    ``None`` means the row now runs every column, so there is no such cell and
+    nothing to classify -- which is the stronger statement, not a waiver.
+    """
     exercised = set(marks.columns_of(feature_id))
-    column = next(name for name in marks.TABLE_ORDER if name not in exercised)
-    assert inventory.cause(feature_id, column) == expected
+    unrun = [name for name in marks.TABLE_ORDER if name not in exercised]
+    if expected is None:
+        assert not unrun, f"{feature_id} still leaves {unrun} unrun"
+        return
+    assert unrun, f"{feature_id} runs every column, so it has no class listed"
+    assert {inventory.cause(feature_id, name) for name in unrun} == {expected}

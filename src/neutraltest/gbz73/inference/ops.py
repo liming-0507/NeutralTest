@@ -77,22 +77,42 @@ def add_jacobian(
 # attention
 # --------------------------------------------------------------------------
 def attention_forward(
-    q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, *, is_causal: bool = False
+    q: torch.Tensor,
+    k: torch.Tensor,
+    v: torch.Tensor,
+    *,
+    is_causal: bool = False,
+    softmax_scale: float | None = None,
 ) -> torch.Tensor:
     # One keyword for one thing: the kernel spells it ``is_causal``, so the
     # reference does too. Two names for the same flag is how call sites drift.
-    return F.scaled_dot_product_attention(q, k, v, is_causal=is_causal)
+    # The same goes for the scale, which the reference fixes at 1/sqrt(d) only
+    # because that is the default: a sweep (D2) has to be able to move it on
+    # both sides, or the point it moves to has nothing to be compared against.
+    scale = softmax_scale
+    if scale is None:
+        scale = 1.0 / math.sqrt(q.shape[-1])
+    return F.scaled_dot_product_attention(q, k, v, is_causal=is_causal, scale=scale)
 
 
 def attention_jacobian(
-    q: torch.Tensor, k: torch.Tensor, v: torch.Tensor, *, is_causal: bool = False
+    q: torch.Tensor,
+    k: torch.Tensor,
+    v: torch.Tensor,
+    *,
+    is_causal: bool = False,
+    softmax_scale: float | None = None,
 ) -> Callable[[torch.Tensor], list[torch.Tensor]]:
     """Hand-written ``dQ``/``dK``/``dV`` for softmax attention.
 
     Written out rather than taken from ``autograd`` so that the test has an
     independent expectation: the two are compared in the conformance suite.
+    The scale enters the VJP linearly in the scores, so moving it changes
+    ``dq``/``dk`` and leaves ``dv`` alone -- which is what the sweep checks.
     """
-    scale = 1.0 / math.sqrt(q.shape[-1])
+    scale = softmax_scale
+    if scale is None:
+        scale = 1.0 / math.sqrt(q.shape[-1])
     scores = (q @ k.transpose(-1, -2)) * scale
     if is_causal:
         length = scores.shape[-1]

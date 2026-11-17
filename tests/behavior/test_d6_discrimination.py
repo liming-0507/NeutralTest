@@ -29,8 +29,12 @@ d6 = rows.module_for("D6")
 
 D6 = next(feature for feature in FEATURES if feature.id == "D6")
 
-#: The columns the row leaves marked, and the ones it discloses instead.
-MARKED = (
+#: The columns where an illegal call has something to refuse. The rest of the
+#: twelve are measured too -- D6 is required of the implementation, so its row is
+#: run everywhere -- but on them the row can only report that the column gives the
+#: kernel no operand to reject, which ``COLUMN_LACKS_OPERAND`` records.
+MARKED = tuple(marks.columns_of("D6"))
+REFUSAL = (
     "flash_attention_fwd",
     "softmax_fwd",
     "rope_fwd",
@@ -38,7 +42,7 @@ MARKED = (
     "kv_cache_bwd",
     "rms_norm_fwd",
 )
-UNMARKED = ("add_fwd", "add_bwd", "flash_attention_bwd", "softmax_bwd", "rope_bwd", "rms_norm_bwd")
+NO_OPERAND = tuple(name for name in MARKED if name not in REFUSAL)
 
 
 def context(name: str) -> InferenceContext:
@@ -52,28 +56,58 @@ def supplied(ctx: InferenceContext, values: tuple) -> tuple[str, ...]:
 
 def test_the_row_is_marked_where_a_kernel_reads_what_it_is_given() -> None:
     assert tuple(marks.APPLICABILITY["D6"]) == MARKED
-    assert not marks.is_marked("D6", "add_fwd")
+    assert marks.is_marked("D6", "add_fwd")
     assert marks.is_marked("D6", "kv_cache_bwd")
 
 
-def test_every_marked_column_passes_on_the_cpu() -> None:
+def test_every_marked_column_is_run_on_the_cpu() -> None:
+    """No measured column is left without an answer, and none turns red.
+
+    A column that can refuse something passes by refusing it; a column of the
+    row's that hands the kernel no illegal operand answers ``na`` with its
+    recorded reason. What the row may not do is leave a column unrun.
+    """
     results = [
         (name, runner.run_column(D6, BY_NAME[name], CpuBackend(), seed=0)) for name in MARKED
     ]
-    assert [(name, result.outcome) for name, result in results] == [
-        (name, "passed") for name in MARKED
-    ], [result.detail for _, result in results if result.outcome != "passed"]
-
-
-@pytest.mark.parametrize("name", UNMARKED)
-def test_an_unmarked_column_carries_a_recorded_reason(name: str) -> None:
-    result = runner.run_column(D6, BY_NAME[name], CpuBackend(), seed=0)
-    assert result.outcome == "na"
-    assert result.detail == reasons.reason_for("D6", name)
-    assert reasons.cause_of("D6", name) in set(reasons.CAUSES) - {reasons.NO_SCRIPT}
+    expected = [(name, "na" if name in NO_OPERAND else "passed") for name in MARKED]
+    assert [(name, result.outcome) for name, result in results] == expected, [
+        result.detail for _, result in results if result.outcome not in {"passed", "na"}
+    ]
 
 
 @pytest.mark.parametrize("name", MARKED)
+def test_a_marked_column_says_what_it_had_to_refuse(name: str) -> None:
+    """Every measured column either has a refusal to make or says it has none.
+
+    A column that reports neither would be a cell the row cannot be judged on,
+    which is exactly the gap this row exists to close.  The row answers ``na``
+    itself for a backward (it is handed derivatives, not values, so nothing in
+    the call can be wrong only by being the wrong shape) and for a column whose
+    operands are all broadcast away; either way the answer must be a sentence
+    the reason table already owns, optionally prefixed with the column's name.
+    """
+    result = runner.run_column(D6, BY_NAME[name], CpuBackend(), seed=0)
+    if name in NO_OPERAND:
+        assert result.outcome == "na"
+        recorded = reasons.reason_for("D6", name)
+        assert result.detail == recorded or result.detail.endswith(recorded), result.detail
+        assert remember_cause(name) == reasons.COLUMN_LACKS_OPERAND
+    else:
+        assert result.outcome == "passed", result.detail
+
+
+def remember_cause(name: str) -> str:
+    """The class the reason table records, read from the row's own entry.
+
+    ``cause_of`` answers :data:`~neutraltest.gbz72.reasons.NO_SCRIPT` for a
+    marked pair -- by design, since a marked pair is one a script claims -- so
+    the recorded class is read directly here.
+    """
+    return reasons._recorded("D6", name).cause
+
+
+@pytest.mark.parametrize("name", REFUSAL)
 def test_the_row_refuses_nothing_the_operator_accepts(name: str) -> None:
     """The control basket: the ordinary sample of the column returns."""
     ctx = context(name)
@@ -81,7 +115,7 @@ def test_the_row_refuses_nothing_the_operator_accepts(name: str) -> None:
     d6._control(ctx, ctx.kernel(), values, kwargs, supplied(ctx, values))
 
 
-@pytest.mark.parametrize("name", MARKED)
+@pytest.mark.parametrize("name", REFUSAL)
 def test_each_marked_column_has_an_illegal_call_to_refuse(name: str) -> None:
     """A marked column whose basket is empty would be a pass bought with nothing."""
     ctx = context(name)

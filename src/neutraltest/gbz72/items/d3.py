@@ -19,7 +19,7 @@ from typing import Any
 
 import torch
 
-from .._support import clone_args, flat, jacobian, make_inputs, observe
+from .._support import clone_args, flat, jacobian, make_inputs, observe, value_slots
 
 ID = "D3"
 COLUMNS = None
@@ -28,6 +28,8 @@ COLUMNS = None
 def run(ctx: Any) -> None:
     args, kwargs = make_inputs(family=ctx.family, seed=ctx.seed, variant=ctx.variant)
     before = clone_args(args)
+    slots = value_slots(ctx.family)
+    first_value = slots[0]
     if ctx.backward:
         first, _ = ctx.gradients_with(args, kwargs)
         second, _ = ctx.gradients_with(args, kwargs)
@@ -41,15 +43,24 @@ def run(ctx: Any) -> None:
     produced = observe(ctx, args, kwargs)
     _unchanged(ctx, args, before)
     value = produced[0]
-    if value.data_ptr() == args[0].data_ptr():
+    if value.data_ptr() == args[first_value].data_ptr():
         raise AssertionError(f"{ctx.column.name}: the result aliases the input")
-    view = args[0].view_as(args[0])
-    again = observe(ctx, (view, args[1]), kwargs)
+    # A view of the first value operand, then a full copy of the whole call:
+    # every argument is swapped, so the kernel cannot tell it apart by identity
+    # and a result that depends on the layout of one operand is caught here.
+    view = list(args)
+    view[first_value] = args[first_value].view_as(args[first_value])
+    again = observe(ctx, tuple(view), kwargs)
     if any(not torch.equal(a, b) for a, b in zip(again, produced, strict=True)):
         raise AssertionError(f"{ctx.column.name}: the view and the original disagreed")
-    copied = observe(ctx, (args[0].clone(), args[1].clone()), kwargs)
+    copied = observe(ctx, _cloned(args), kwargs)
     if any(not torch.equal(a, b) for a, b in zip(copied, produced, strict=True)):
         raise AssertionError(f"{ctx.column.name}: the copy and the original disagreed")
+
+
+def _cloned(args: Any) -> tuple[Any, ...]:
+    """A copy of every tensor operand; tensors that are not tensors stay as they are."""
+    return tuple(a.clone() if isinstance(a, torch.Tensor) else a for a in args)
 
 
 def _unchanged(ctx: Any, args: Any, before: Any) -> None:

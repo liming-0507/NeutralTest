@@ -45,8 +45,14 @@ def run(ctx: Any) -> None:
         _attention(ctx, args, kwargs)
     elif ctx.family == "kv_cache":
         _cache(ctx, args)
-    else:
+    elif ctx.family == "softmax":
+        _softmax(ctx, args, kwargs)
+    elif ctx.family == "rope":
+        _rope(ctx, args, kwargs)
+    elif ctx.family == "rms_norm":
         _rms(ctx, args)
+    else:  # pragma: no cover - the six families above are the whole table
+        ctx.na(f"{ctx.family} has no scale or layout option to check")
 
 
 def _add(ctx: Any, args: Any) -> None:
@@ -85,6 +91,71 @@ def _attention(ctx: Any, args: Any, kwargs: Any) -> None:
     close(scaled, expected, rel=budget(ctx), msg=f"{ctx.column.name}: softmax_scale=2")
     if torch.equal(scaled, default):
         raise AssertionError(f"{ctx.column.name}: softmax_scale had no effect")
+
+
+def _softmax(ctx: Any, args: Any, kwargs: Any) -> None:
+    """``dim`` decides which axis is normalised, and only that axis.
+
+    A softmax has no multiplicative scale, so the parameter this row checks for
+    it is the reduction axis: the sums along ``dim`` must be one, the other axis
+    must be left alone. Getting those two mixed up is the classic softmax defect
+    and it is invisible to a value comparison against a reference that was given
+    the same (possibly wrong) axis.
+    """
+    (x,) = args
+    neutral = observe(ctx, args, kwargs)[0]
+    close(
+        neutral.sum(dim=-1),
+        torch.ones_like(neutral.sum(dim=-1)),
+        rel=budget(ctx),
+        msg=f"{ctx.column.name}: the default axis does not sum to one",
+    )
+    other = observe(ctx, args, {"dim": -2})[0]
+    close(
+        other.sum(dim=-2),
+        torch.ones_like(other.sum(dim=-2)),
+        rel=budget(ctx),
+        msg=f"{ctx.column.name}: dim=-2 does not normalise the other axis",
+    )
+    if torch.equal(neutral, other):
+        raise AssertionError(f"{ctx.column.name}: dim had no effect")
+    # The two axes normalise different marginal sums, so the column's sums have
+    # to differ wherever the input is not constant -- otherwise both calls
+    # normalised the same axis and one of them silently ignored the argument.
+    if (
+        x.shape[-1] > 1
+        and x.shape[-2] > 1
+        and torch.allclose(neutral.sum(dim=-2), other.sum(dim=-2))
+    ):
+        raise AssertionError(
+            f"{ctx.column.name}: dim=-2 produced the same marginal sums as the default"
+        )
+
+
+def _rope(ctx: Any, args: Any, kwargs: Any) -> None:
+    """``interleaved`` picks which two lanes rotate against each other.
+
+    A rotation is orthogonal, so the row's norm is preserved either way; what
+    the pairing changes is *which* lanes leave with which. Comparing the two
+    pairings therefore has to look at the values, not the norms -- and the
+    interleaved form is the only one whose adjacent pairs rotate together, so
+    its row sums differ from the split form on a non-symmetric row.
+    """
+    x, position = args
+    if x.shape[-1] % 2 or x.shape[-1] < 4:
+        ctx.na("the rotation needs an even width of at least four to have two pairings")
+    default = observe(ctx, args, kwargs)[0]
+    split = observe(ctx, args, dict(kwargs, interleaved=False))[0]
+    if torch.equal(default, split):
+        raise AssertionError(f"{ctx.column.name}: interleaved had no effect")
+    for produced, label in ((default, "interleaved"), (split, "split")):
+        before = x.to(torch.float64).pow(2).sum(-1)
+        after = produced.to(torch.float64).pow(2).sum(-1)
+        drift = float(((after - before).abs() / (before + 1e-30)).max())
+        if drift > 1e-5:
+            raise AssertionError(
+                f"{ctx.column.name}: the {label} rotation changed a row's norm by {drift:.3e}"
+            )
 
 
 def _cache(ctx: Any, args: Any) -> None:

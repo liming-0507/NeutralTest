@@ -57,6 +57,8 @@ __all__ = [
     "observe",
     "reference",
     "require_resolvable",
+    "numeric_option",
+    "value_slots",
 ]
 
 
@@ -340,3 +342,39 @@ def check(
     if context.backward:
         return jacobian(context, args, kwargs, rel=JACOBIAN_RTOL if rel is None else rel)
     return forward(context, args, kwargs, rel=rel, dtype=dtype)
+
+
+#: Which positional arguments carry a value the operator reads, per family.
+#: Everything else in the signature is a route: a reduction axis, a slot list,
+#: an angle table. Separating the two is what lets a test sweep dtypes or
+#: options across the operands without also sweeping the metadata -- mixing a
+#: route is a different claim (C4), and mixing it here would test it twice.
+#: The cache's two destination rows are left out on purpose: they are written,
+#: not read, so widening them is not the mixed-input question this table answers.
+VALUE_SLOTS: dict[str, tuple[int, ...]] = {
+    "add": (0, 1),
+    "flash_attention": (0, 1, 2),
+    "kv_cache": (0, 1),
+    "softmax": (0,),
+    "rope": (0,),
+    "rms_norm": (0, 1),
+}
+
+#: The one numeric knob each family exposes, and the values worth sweeping.
+#: A family with no knob is absent: its remaining options are choices between
+#: behaviours (a causal mask, a split rotation), which D1 and C4 already cover.
+NUMERIC_OPTION: dict[str, tuple[str, tuple[float, ...]]] = {
+    "add": ("alpha", (-3.0, -1.0, -0.5, 0.0, 0.5, 1.0, 2.0, 3.5)),
+    "flash_attention": ("softmax_scale", (0.25, 0.5, 1.0, 1.0 / 4**0.5, 2.0)),
+    "rms_norm": ("eps", (1e-12, 1e-9, 1e-6, 1e-3, 1e-1)),
+}
+
+
+def value_slots(family: str) -> tuple[int, ...]:
+    """The argument positions of ``family`` that carry a value."""
+    return VALUE_SLOTS.get(family, ())
+
+
+def numeric_option(family: str) -> tuple[str, tuple[float, ...]]:
+    """``(name, values)`` for the family's numeric knob; ``("", ())`` if it has none."""
+    return NUMERIC_OPTION.get(family, ("", ()))

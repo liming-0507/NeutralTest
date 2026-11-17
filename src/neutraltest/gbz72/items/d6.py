@@ -309,16 +309,14 @@ def _refuse(
 
 
 def _empty(ctx: Any) -> str:
-    """Why a column carries no defect, when the table has no reason for it."""
-    if ctx.family == "add":
-        return (
-            "the add's kernels cast and broadcast every width and floating type they are "
-            "handed, so no operand of theirs is an illegal input for the column itself"
-        )
-    return (
-        "no operand of this column is illegal for its kernel: every one it takes is a "
-        "number, a row it reduces, or a shape it never compares"
-    )
+    """Why a column carries no defect.
+
+    The reason table already owns this sentence for the row -- it is what the
+    matrix prints for a cell D6 measures but cannot refuse anything on -- so it
+    is read from there rather than written a second time here, where the two
+    copies would drift.
+    """
+    return reasons.reason_for(ID, ctx.column.name)
 
 
 __all__ = ["CLAUSE_COLUMNS", "COLUMNS", "ID", "run"]

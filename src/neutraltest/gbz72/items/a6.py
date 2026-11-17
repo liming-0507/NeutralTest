@@ -79,10 +79,19 @@ def run(ctx: Any) -> None:
 
 
 def _must_go_nan(ctx: Any, args: Any, kwargs: Any, poison: float) -> bool:
-    """Whether a reference that is finite here would still make this row meaningful."""
-    if ctx.family != "flash_attention" or poison == poison:
-        return True
-    # The NaN sits in v (the third operand): the reference's own answer decides.
+    """Whether a reference that is finite here would still make this row meaningful.
+
+    A NaN does not have to reach the output. Attention multiplies the weights by
+    ``v`` after a softmax that can round a weight to exactly zero, and ``0 * NaN``
+    is decided by the framework rather than by the operator; a cache read touches
+    only the rows its slot list names, so a poison outside that list is never
+    read at all. In both cases the reference itself stays finite, and a row that
+    demanded a NaN anyway would be reporting the sample rather than the operator.
+
+    The test is therefore the reference's own answer, for every poison and every
+    family: if the reference is finite on this call, the call does not exercise
+    the poison, and the row says so instead of failing.
+    """
     want = reference(ctx, tuple(args), kwargs, dtype=torch.float32)[0]
     return bool(torch.isnan(want).any())
 

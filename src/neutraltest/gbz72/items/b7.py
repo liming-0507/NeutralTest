@@ -57,7 +57,10 @@ def _strided(ctx: Any) -> tuple[Any, Any]:
         a, b = args
         return (a[:, ::2], b[::2]), kwargs
     if ctx.family == "flash_attention":
-        return tuple(value[..., ::2] for value in args), kwargs
+        # Stride along the sequence, not the head dimension: slicing the last
+        # axis would halve head_dim, and the contiguous copy would then be a
+        # different computation rather than the same one laid out differently.
+        return tuple(value[:, :, ::2, :] for value in args), kwargs
     if ctx.family == "kv_cache":
         keys, values, cache_k, cache_v, index = args
         return (keys[:, ::2], values[:, ::2], cache_k[:, ::2], cache_v[:, ::2], index), kwargs

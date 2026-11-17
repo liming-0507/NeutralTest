@@ -14,18 +14,18 @@ from neutraltest.gbz73.inference.columns import COLUMN_SPECS, Column
 #: to these values; what changed is only where the values come from.
 MARKED = len(marks.marked_pairs())
 PER_COLUMN = {
-    "add_fwd": 28,
-    "flash_attention_fwd": 24,
-    "softmax_fwd": 22,
-    "rope_fwd": 26,
-    "kv_cache_fwd": 25,
-    "rms_norm_fwd": 26,
-    "add_bwd": 18,
-    "flash_attention_bwd": 19,
-    "softmax_bwd": 16,
-    "rope_bwd": 18,
-    "kv_cache_bwd": 19,
-    "rms_norm_bwd": 17,
+    "add_fwd": 35,
+    "flash_attention_fwd": 32,
+    "softmax_fwd": 33,
+    "rope_fwd": 35,
+    "kv_cache_fwd": 35,
+    "rms_norm_fwd": 34,
+    "add_bwd": 30,
+    "flash_attention_bwd": 30,
+    "softmax_bwd": 30,
+    "rope_bwd": 30,
+    "kv_cache_bwd": 31,
+    "rms_norm_bwd": 31,
 }
 
 
@@ -63,25 +63,52 @@ def test_the_column_totals_match_the_analysed_table() -> None:
     assert sum(counted.values()) == MARKED
 
 
-def test_thirteen_rows_claim_no_column_and_the_rest_claim_some() -> None:
-    empty = [feature.id for feature in FEATURES if not marks.columns_of(feature.id)]
-    # F7 postdates the table the clause drew up, so it is the first empty row with
-    # its own reason rather than one of the rows the analysis recorded as such.
-    # E1 and E2 left this list when they became rows over all twelve columns,
-    # and A7 when it became a row of its own. E3, E6 and E7 followed when the
-    # group's own scripts gained columns; F3 was already a row and stays one.
-    assert len(empty) == 9
-    assert "F7" in empty
-    assert set(empty) - {"F7"} == {
-        "A12",
-        "B1",
-        "B2",
-        "B3",
-        "C2",
-        "D5",
-        "F4",
-        "F6",
+#: Required rows that are not measured per operator-column, and why.
+#: F6 asks for the not-applicable bookkeeping the disclosure section prints --
+#: it is a statement about the report, not a behaviour of any one operator.
+#: F7 postdates the twelve-column table and is therefore reported in the
+#: "measured outside the table" section instead of being attributed to columns
+#: the clause never drew up for it.
+NOT_PER_COLUMN: dict[str, str] = {
+    "F6": "the disclosure row itself: the report prints it, no operator owns it",
+    "F7": "postdates the twelve-column table; reported outside it",
+}
+
+
+def test_every_required_row_runs_every_column() -> None:
+    """A row the analysis calls required is measured on all twelve columns.
+
+    The clause does not ask for every one of those cells -- the required rows
+    are required of the *implementation*, and a vendor cannot claim to support
+    one of these operators while leaving, say, its gradient unmeasured just
+    because the clause named that feature under the training operators. The two
+    exceptions are structural and named above; anything else is a hole.
+    """
+    hollow = {
+        feature.id: sorted(set(marks.TABLE_ORDER) - set(marks.columns_of(feature.id)))
+        for feature in FEATURES
+        if feature.tier == "required"
+        and feature.id not in NOT_PER_COLUMN
+        and len(marks.columns_of(feature.id)) != len(marks.TABLE_ORDER)
     }
+    assert not hollow, f"required rows without a full set of columns: {hollow}"
+
+
+def test_the_rows_that_claim_no_column_are_the_ones_with_a_reason_to() -> None:
+    """A row with no column at all has to justify why, and none may be required.
+
+    F6 is the only required row that stays empty, and it is empty for a reason
+    of a different kind: it is the disclosure row itself -- what it asks for is
+    the not-applicable bookkeeping printed by the disclosure section, which
+    cannot be attributed to one operator-column. Every other empty row is
+    conditional or optional.
+    """
+    empty = {feature.id for feature in FEATURES if not marks.columns_of(feature.id)}
+    assert empty == {"B1", "B2", "C2", "D5", "F4", "F6", "F7"}, sorted(empty)
+    tiers = {feature.id: feature.tier for feature in FEATURES}
+    # The required rows that run no column are exactly the ones named above, so
+    # the exception list and the catalogue cannot drift apart.
+    assert {fid for fid in empty if tiers[fid] == "required"} == set(NOT_PER_COLUMN)
     assert len(marks.marked_pairs()) == MARKED
 
 
