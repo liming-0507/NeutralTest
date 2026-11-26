@@ -80,3 +80,64 @@ def test_the_listing_is_in_catalogue_order_not_string_order() -> None:
     listed = items.available_features()
     numbers = [(fid[0], int(fid[1:])) for fid in listed]
     assert numbers == sorted(numbers), listed
+
+
+class _NoHalfKernel:
+    """A backend that answers every call the way torch 2.1's CPU build does.
+
+    torch 2.1 ships no half-precision ``baddbmm``, so the 7.2 scripts that reach
+    one raise ``RuntimeError: "baddbmm_with_gemm" not implemented for 'Half'``.
+    That is a property of the wheel, and the CI leg for the oldest supported
+    torch asks for it to be skipped rather than failed.
+    """
+
+    name = "cpu"
+
+    def __getattr__(self, item):
+        raise RuntimeError("\"baddbmm_with_gemm\" not implemented for 'Half'")
+
+
+class _Broken:
+    """A backend that fails for a reason that is nobody's missing kernel."""
+
+    name = "cpu"
+
+    def __getattr__(self, item):
+        raise ValueError("shape mismatch: expected 3, got 4")
+
+
+def _run_with_policy(backend, policy: str):
+    from neutraltest.policy import patched_policy
+
+    feature = _feature("A1")
+    column = next(column for column in COLUMN_SPECS if column.name == "add_fwd")
+    with patched_policy(on_unsupported=policy):
+        return runner.run_column(feature, column, backend, seed=7)
+
+
+def test_a_missing_kernel_follows_the_unsupported_policy() -> None:
+    """``--on-unsupported`` reaches a test that calls the 7.2 runner directly.
+
+    The runner captures the exception and returns a result, so the pytest hook
+    that applies the policy never sees it; the runner has to apply it itself or
+    the option covers only part of the suite.  The default stays strict -- a
+    missing kernel is a finding unless someone says otherwise.
+    """
+    assert _run_with_policy(_NoHalfKernel(), "fail").outcome == "failed"
+    mild = _run_with_policy(_NoHalfKernel(), "skip")
+    assert mild.outcome == "unsupported"
+    assert mild.ok
+    assert mild.cause == "unsupported_by_backend"
+
+
+def test_the_unsupported_policy_never_hides_a_real_defect() -> None:
+    """A failure that is not a missing kernel stays a failure under every policy.
+
+    The classifier is substring-based, so the risk this guards against is a bug
+    whose message happens to look like a backend limitation: the policy may
+    downgrade "no kernel", never "wrong answer".
+    """
+    for policy in ("fail", "skip", "xfail"):
+        result = _run_with_policy(_Broken(), policy)
+        assert result.outcome == "failed", (policy, result.outcome)
+        assert not result.ok

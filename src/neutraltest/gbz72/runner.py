@@ -21,8 +21,15 @@ from ..gbz73.features import FEATURES, Feature
 from ..gbz73.inference.columns import BY_NAME, Column
 from . import marks, reasons
 
-SYMBOLS = {"passed": "P", "failed": "F", "na": "-", "known": "K", "not_run": "·"}
-VERDICTS = ("passed", "failed", "na", "known")
+SYMBOLS = {
+    "passed": "P",
+    "failed": "F",
+    "na": "-",
+    "known": "K",
+    "unsupported": "U",
+    "not_run": "·",
+}
+VERDICTS = ("passed", "failed", "na", "known", "unsupported")
 
 #: The glyph for a pass on a pair the applicability table does not mark: the row
 #: runs, the result is real, but the clause does not ask this column for it. It
@@ -46,7 +53,15 @@ class Result:
 
     @property
     def ok(self) -> bool:
-        return self.outcome in ("passed", "na", "known")
+        """Whether the cell is not a failure.
+
+        ``unsupported`` counts as not-a-failure for the same reason the
+        conformance engine treats it that way: the clause asks for a column the
+        backend has no kernel for, which is a property of that backend build.
+        The cell still appears in the matrix under its own symbol, so the
+        disclosure is not lost -- only the gate stops blaming this harness.
+        """
+        return self.outcome in ("passed", "na", "known", "unsupported")
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -66,6 +81,8 @@ class Result:
         and a runtime not-applicable is a class of its own (the scenario exists
         and this sample did not reach it), so the two cannot drift apart.
         """
+        if self.outcome == "unsupported":
+            return "unsupported_by_backend"
         if self.outcome != "na":
             return None
         return reasons.cause_of(self.feature, self.column)
@@ -140,6 +157,14 @@ def run_column(feature: Feature, column: Column, backend: Any, *, seed: int = 0)
         if isinstance(exc, (NotApplicable, NotVerifiable)):
             reason = exc.reason if isinstance(exc, NotApplicable) else str(exc)
             return Result(feature.id, column.name, "na", reason, time.perf_counter() - started)
+        if _unsupported(feature, column, backend, exc):
+            return Result(
+                feature.id,
+                column.name,
+                "unsupported",
+                f"{type(exc).__name__}: {exc}",
+                time.perf_counter() - started,
+            )
         entry = _known_entry(feature, column, backend)
         if entry is not None:
             return Result(
@@ -156,6 +181,24 @@ def run_column(feature: Feature, column: Column, backend: Any, *, seed: int = 0)
             f"{type(exc).__name__}: {exc}",
             time.perf_counter() - started,
         )
+
+
+def _unsupported(feature: Feature, column: Column, backend: Any, exc: BaseException) -> bool:
+    """Whether *exc* is "this backend has no kernel", under the active policy.
+
+    The conformance engine and the pytest plugin both honour ``on_unsupported``;
+    a test that calls :func:`run_column` gets a :class:`Result` instead of an
+    exception, so nothing downstream can apply the policy for it.  Without this
+    the option would silently cover only part of the suite -- and the CI leg for
+    the oldest supported torch, which sets it precisely because that build lacks
+    half-precision kernels, would fail on a property of the wheel.
+    """
+    from ..errors import is_unsupported_error
+    from ..policy import get_policy
+
+    if not is_unsupported_error(exc):
+        return False
+    return get_policy().on_unsupported != "fail"
 
 
 def _known_entry(feature: Feature, column: Column, backend: Any):

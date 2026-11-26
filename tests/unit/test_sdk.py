@@ -85,8 +85,17 @@ def _profile(**overrides):
     return sdk.SdkProfile(**base)
 
 
-def test_default_profile_is_in_band_for_a_supported_pair() -> None:
-    snapshot = sdk.detect(sdk.default_profile(), python="3.13.13", torch_version="2.15.0+cpu")
+def test_a_supported_pair_is_in_band() -> None:
+    """A window wide enough for the pair reports both bands as ``ok``.
+
+    Both windows come from the profile.  ``default_profile()`` derives the torch
+    window from whichever torch is *installed* (``sdk.pytorch_release``), so a
+    test built on it would pass or fail depending on the runner's torch rather
+    than on the code under test -- which is exactly what it did, on the leg that
+    pins torch 2.1.
+    """
+    profile = _profile(torch_window=">=2.15,<2.16", python_window=sdk.PYTORCH_SUPPORT["2.15"])
+    snapshot = sdk.detect(profile, python="3.13.13", torch_version="2.15.0+cpu")
     assert snapshot.in_band
     assert snapshot.bands["torch"] == "ok"
     assert snapshot.bands["python"] == "ok"

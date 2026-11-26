@@ -121,11 +121,15 @@ jobs:
             --extra-index-url https://pypi.org/simple
       - name: Report the versions under test
         run: python -c "import sys, torch; print(sys.version); print(torch.__version__)"
+      # --on-unsupported on both steps of the old-torch leg: e.g. torch 2.1 has
+      # no bfloat16 mse_loss kernel and no half-precision baddbmm on CPU, which
+      # is a property of that torch build, not a defect in this harness. It has
+      # to be passed here too -- the behaviour suite calls the 7.2 runner
+      # directly and that runner reports the missing kernel as a result rather
+      # than raising, so the switch is the only way the policy reaches it. The
+      # newest leg keeps the strict "fail".
       - name: Framework tests
-        run: pytest tests -q
-      # --on-unsupported=skip on the old-torch leg: e.g. torch 2.1 has no
-      # bfloat16 mse_loss kernel on CPU, which is a property of that torch build,
-      # not a defect in this harness. The newest leg keeps the strict "fail".
+        run: pytest tests -q --on-unsupported=${{ matrix.unsupported }}
       - name: Operator matrix
         run: pytest src/neutraltest/conformance -q --on-unsupported=${{ matrix.unsupported }} -rs
 
