@@ -94,8 +94,11 @@ def test_default_profile_is_in_band_for_a_supported_pair() -> None:
 
 def test_default_profile_flags_python_outside_the_torch_window() -> None:
     # torch 2.15 requires python >= 3.11; 3.10 is inside the package's own claim
-    # but outside the interpreter window of that torch.
-    snapshot = sdk.detect(sdk.default_profile(), python="3.10.4", torch_version="2.15.0+cpu")
+    # but outside the interpreter window of that torch.  The profile is stated
+    # explicitly: ``default_profile()`` reads the *installed* torch, so using it
+    # here would make the expectation depend on what CI happens to install.
+    profile = _profile(python_window=sdk.PYTORCH_SUPPORT["2.15"])
+    snapshot = sdk.detect(profile, python="3.10.4", torch_version="2.15.0+cpu")
     assert not snapshot.in_band
     assert snapshot.bands["python"] == "below"
     assert "3.11" in snapshot.deviations[0]
