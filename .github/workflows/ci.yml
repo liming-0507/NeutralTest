@@ -92,6 +92,9 @@ jobs:
           # 20 copies of torch for very little extra signal (see docs/space.md).
           - python: "3.10"
             torch: "2.1.2"
+            # torch 2.1 was built against numpy 1.x; with numpy 2 on the path
+            # torch.numpy() raises "Numpy is not available" at runtime.
+            numpy: "numpy<2"
             unsupported: skip   # old torch: a missing kernel is not our regression
           # The middle leg exists for the same reason the SDK check does: a
           # stack certified against an older torch is the common case in the
@@ -113,7 +116,8 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e . --no-deps
           python -m pip install "torch${{ matrix.torch && format('=={0}', matrix.torch) || '' }}" \
-            "numpy>=1.24" "pytest>=7.4" --index-url https://download.pytorch.org/whl/cpu \
+            "${{ matrix.numpy || 'numpy>=1.24' }}" "pytest>=7.4" \
+            --index-url https://download.pytorch.org/whl/cpu \
             --extra-index-url https://pypi.org/simple
       - name: Report the versions under test
         run: python -c "import sys, torch; print(sys.version); print(torch.__version__)"
