@@ -29,7 +29,11 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
           python -m pip install -e ".[dev]" --no-deps
-          python -m pip install pytest ruff mypy
+          # torch needs numpy for the .numpy() bridge; --no-deps above keeps the
+          # CUDA payload out, so the runtime dependency is installed explicitly.
+          # ruff is pinned: newer releases started reformatting Python snippets
+          # inside Markdown, which turned this gate red without any code change.
+          python -m pip install "numpy>=1.24" "pytest>=7.4" "ruff==0.17.6" "mypy>=1.8"
       - name: ruff format
         run: ruff format --check .
       - name: ruff check
@@ -59,7 +63,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
           python -m pip install -e . --no-deps
-          python -m pip install "pytest>=7.4"
+          python -m pip install "numpy>=1.24" "pytest>=7.4"
       - name: Framework tests
         run: pytest tests -q
       - name: CLI smoke
@@ -109,7 +113,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e . --no-deps
           python -m pip install "torch${{ matrix.torch && format('=={0}', matrix.torch) || '' }}" \
-            "pytest>=7.4" --index-url https://download.pytorch.org/whl/cpu \
+            "numpy>=1.24" "pytest>=7.4" --index-url https://download.pytorch.org/whl/cpu \
             --extra-index-url https://pypi.org/simple
       - name: Report the versions under test
         run: python -c "import sys, torch; print(sys.version); print(torch.__version__)"
@@ -135,7 +139,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
           python -m pip install -e . --no-deps
-          python -m pip install "pytest>=7.4"
+          python -m pip install "numpy>=1.24" "pytest>=7.4"
       - name: --backend=all must skip the absent devices
         run: pytest src/neutraltest/conformance -q --backend=all -rs
       - name: --backend-strict must reject an unavailable backend instead

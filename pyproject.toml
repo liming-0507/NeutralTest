@@ -74,6 +74,10 @@ filterwarnings = ["error::DeprecationWarning:neutraltest.*"]
 line-length = 100
 target-version = "py310"
 src = ["src", "tests"]
+# Docs and READMEs carry hand-aligned snippets that teach a shape, not a file
+# that ships. Keep the formatter off them so a ruff release that starts
+# rewriting fenced code blocks cannot fail the build over prose.
+extend-exclude = ["*.md"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "RET", "C4", "PIE", "PT"]
